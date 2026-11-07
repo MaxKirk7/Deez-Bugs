@@ -3,7 +3,7 @@
     uv run python data/transaction.py
 
 data/raw/ is gitignored (the files are ~480 MB). Never edit these files:
-the conversion script reads them and writes its own output.
+`uv run tiger-load` reads them and loads the reference users into the database.
 Safe to re-run: files already in data/raw/ are left alone.
 """
 

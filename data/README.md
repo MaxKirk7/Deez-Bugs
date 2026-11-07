@@ -70,7 +70,7 @@ The data has 14 categories. A `_pos` suffix means in person and `_net` means onl
 
 ## In the database
 
-`uv run tiger-load` stores **all 999 users, each with their latest 12 months** (about 929k rows) in the `kaggle_transactions` hypertable. Columns are as above, renamed `trans_date_trans_time` → `trans_time`, without `gender` and `is_fraud`, and with the `fraud_` prefix removed from merchant names. `kaggle_daily_spend` holds pre-computed daily totals per user per category.
+`uv run tiger-load` stores the **908 real users, each with their latest 12 months** (about 924k purchases), in the `transactions` hypertable, with `cc_num` as the user ID. Only `cc_num`, the purchase time, merchant (without the `fraud_` prefix), category and amount are stored, plus each user's `dob` in `users`. Purchases the dataset marks as not made by the card owner are left out. 91 cards have only those, which is why it's 908 users, not 999. See [docs/DB_DESIGN.md](../docs/DB_DESIGN.md).
 
 ## Things worth knowing
 
