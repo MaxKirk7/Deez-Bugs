@@ -61,5 +61,14 @@ Hours 22–24	Presentation and demonstration preparation
 
 ## Overview
 ![alt text](image.png)
-## Database (Tiger Data)
-All transactions live in a shared Tiger Data (TimescaleDB) cloud database. **New to the project? Start with [TIGER_DATA.md](TIGER_DATA.md)**: it covers getting connected in 5 minutes, what tables exist, and how to query them from Python.
+## Database
+All data lives in a shared Tiger Data (TimescaleDB) cloud database. **New to the project? Start with [TIGER_DATA.md](TIGER_DATA.md)**: it covers getting connected in 5 minutes, what tables exist, and how to query them from Python.
+
+- **Schema:** plain SQL in [`db/migrations/`](../db/migrations/). `transactions` is a hypertable (1-month chunks), and `monthly_category_spend` and `daily_cashflow` are continuous aggregates that refresh hourly. The ML outputs (segments, neighbours, recommendations, `model_runs` with metrics) are normal tables.
+- **Setup:** put `DATABASE_URL` in `.env` (see `.env.example`), then:
+  ```bash
+  uv sync
+  uv run python db/migrate.py   # safe to re-run
+  uv run python db/verify.py    # should end with ALL CHECKS PASSED
+  ```
+- **Delete my data:** `uv run python db/delete_user.py <user_id> --yes` removes a user and every row about them, including their totals in the aggregates.
