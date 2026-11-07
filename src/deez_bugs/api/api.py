@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
 import pandas as pd
 import io
 import os
@@ -10,6 +10,8 @@ import uvicorn
 load_dotenv()
 
 router = APIRouter(tags=["Data Upload"])
+app = FastAPI()
+app.include_router(router)
 
 # 1. Connect to the shared Timescale Cloud DB using the environment variable
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -86,4 +88,4 @@ async def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run("src.deez_bugs.api.api:router", host="127.0.0.1", port=8000,reload=True)
+    uvicorn.run("deez_bugs.api.api:app", host="127.0.0.1", port=8000, reload=True)
