@@ -125,6 +125,11 @@ def process_csv(contents: bytes) -> dict:
         .agg(total="sum", transaction_count="count")
         .sort_values("hour")
     )
+    by_weekday = (
+        frame.groupby(["day_of_week_number", "day_of_week"], as_index=False)["amount"]
+        .agg(total="sum", transaction_count="count")
+        .sort_values("day_of_week_number")
+    )
     location_columns = [
         column
         for column in ("merchant_latitude", "merchant_longitude")
@@ -176,6 +181,7 @@ def process_csv(contents: bytes) -> dict:
         "by_category": by_category.to_dict(orient="records"),
         "by_month": by_month.to_dict(orient="records"),
         "by_hour": by_hour.to_dict(orient="records"),
+        "by_weekday": by_weekday.to_dict(orient="records"),
         "location": {
             "transaction_locations": _json_records(frame[location_columns].drop_duplicates())
             if location_columns

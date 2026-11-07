@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import pickle
 from pathlib import Path
 
@@ -26,6 +26,7 @@ class SpendingProfileModel:
     reference_categories: pd.DataFrame
     reference_merchants: dict[object, dict[str, dict[str, set[str]]]]
     cluster_sizes: dict[int, int]
+    merchant_profiles: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
 def _filled_features(
@@ -50,6 +51,20 @@ def _merchant_categories(frame: pd.DataFrame) -> dict[str, set[str]]:
         merchant: set(values.astype(str))
         for merchant, values in frame.groupby("merchant")["category"]
     }
+
+
+def _merchant_profiles(frame: pd.DataFrame) -> dict[str, dict[str, object]]:
+    profiles: dict[str, dict[str, object]] = {}
+    for merchant, merchant_frame in frame.groupby("merchant"):
+        profile: dict[str, object] = {
+            "categories": set(merchant_frame["category"].astype(str)),
+            "average_amount": float(pd.to_numeric(merchant_frame["amt"]).mean()),
+        }
+        if {"merch_lat", "merch_long"} <= set(merchant_frame.columns):
+            profile["latitude"] = float(pd.to_numeric(merchant_frame["merch_lat"]).mean())
+            profile["longitude"] = float(pd.to_numeric(merchant_frame["merch_long"]).mean())
+        profiles[str(merchant)] = profile
+    return profiles
 
 
 def _read_training_csv(path: str | Path | pd.DataFrame) -> pd.DataFrame:
@@ -108,6 +123,7 @@ def train_spending_profile_model(
         reference_categories=reference_categories,
         reference_merchants=reference_merchants,
         cluster_sizes=pd.Series(labels).value_counts().sort_index().to_dict(),
+        merchant_profiles=_merchant_profiles(frame),
     )
 
 
@@ -149,6 +165,8 @@ def load_spending_profile_model(path: str | Path) -> SpendingProfileModel:
         raise ValueError(
             f"{path} is an incompatible model; retrain it with data/train_model.py"
         )
+    if not hasattr(model, "merchant_profiles"):
+        model.merchant_profiles = {}
     return model
 
 
@@ -172,6 +190,9 @@ def _recommendations(
     similar_users: pd.DataFrame,
     uploaded_merchants: set[str],
     uploaded_categories: set[str],
+    user_latitude: float | None,
+    user_longitude: float | None,
+    category_average: dict[str, float],
     limit: int,
 ) -> list[dict]:
     """Rank merchants used by similar users but absent from the upload."""
@@ -189,9 +210,45 @@ def _recommendations(
                 uploaded_categories
             ):
                 continue
+            profile = model.merchant_profiles.get(merchant, {})
+            candidate_categories = set(profile.get("categories", merchant_categories))
+            matching_categories = candidate_categories.intersection(uploaded_categories)
+            category = sorted(matching_categories or candidate_categories)
+            category_name = category[0] if category else None
+            average_amount = float(profile.get("average_amount", 0))
+            cheaper_than_user = (
+                category_name in category_average
+                and average_amount < category_average[category_name]
+            )
+            estimated_savings = (
+                max(category_average[category_name] - average_amount, 0)
+                if category_name in category_average
+                else 0
+            )
+            distance_km = None
+            if (
+                user_latitude is not None
+                and user_longitude is not None
+                and profile.get("latitude") is not None
+                and profile.get("longitude") is not None
+            ):
+                distance_km = _geo_distance(
+                    user_latitude,
+                    user_longitude,
+                    float(profile["latitude"]),
+                    float(profile["longitude"]),
+                )
             entry = candidates.setdefault(
                 merchant,
-                {"score": 0.0, "similar_users": 0, "categories": set()},
+                {
+                    "score": 0.0,
+                    "similar_users": 0,
+                    "categories": set(),
+                    "average_amount": average_amount,
+                    "distance_km": distance_km,
+                    "cheaper_than_user": cheaper_than_user,
+                    "estimated_savings": estimated_savings,
+                },
             )
             entry["score"] += float(row.similarity)
             entry["similar_users"] += 1
@@ -199,7 +256,12 @@ def _recommendations(
 
     ranked = sorted(
         candidates.items(),
-        key=lambda item: (float(item[1]["score"]), int(item[1]["similar_users"])),
+        key=lambda item: (
+            bool(item[1]["cheaper_than_user"]),
+            int(item[1]["similar_users"]),
+            float(item[1]["score"]),
+            -(float(item[1]["distance_km"]) if item[1]["distance_km"] is not None else 0),
+        ),
         reverse=True,
     )
     recommendations = []
@@ -210,6 +272,14 @@ def _recommendations(
             "score": round(float(values["score"]), 4),
             "similar_users": int(values["similar_users"]),
             "category": categories[0] if categories else None,
+            "average_amount": round(float(values["average_amount"]), 2),
+            "distance_km": (
+                round(float(values["distance_km"]), 1)
+                if values["distance_km"] is not None
+                else None
+            ),
+            "cheaper_than_user": bool(values["cheaper_than_user"]),
+            "estimated_savings": round(float(values["estimated_savings"]), 2),
         })
     return recommendations
 
@@ -230,6 +300,16 @@ def analyse_uploaded_transactions(
 
     category_sets = _user_lookup(transactions, "category")
     merchant_sets = _user_lookup(transactions, "merchant")
+    latitude = (
+        pd.to_numeric(transactions["merch_lat"], errors="coerce")
+        if "merch_lat" in transactions
+        else pd.Series(np.nan, index=transactions.index)
+    )
+    longitude = (
+        pd.to_numeric(transactions["merch_long"], errors="coerce")
+        if "merch_long" in transactions
+        else pd.Series(np.nan, index=transactions.index)
+    )
     results = []
     for row_number, user_id in enumerate(features.index):
         reference_order = np.argsort(similarities[row_number])[::-1]
@@ -244,6 +324,17 @@ def analyse_uploaded_transactions(
             similar_users,
             merchant_sets.get(user_id, set()),
             category_sets.get(user_id, set()),
+            float(latitude[transactions["cc_num"] == user_id].mean())
+            if latitude[transactions["cc_num"] == user_id].notna().any()
+            else None,
+            float(longitude[transactions["cc_num"] == user_id].mean())
+            if longitude[transactions["cc_num"] == user_id].notna().any()
+            else None,
+            transactions[transactions["cc_num"] == user_id]
+            .groupby("category")["amt"]
+            .mean()
+            .astype(float)
+            .to_dict(),
             recommendation_limit,
         )
         results.append({
@@ -254,6 +345,22 @@ def analyse_uploaded_transactions(
             "recommendations": recommendations,
         })
     return {"status": "scored", "users": results}
+
+
+def _geo_distance(
+    latitude_a: float,
+    longitude_a: float,
+    latitude_b: float,
+    longitude_b: float,
+) -> float:
+    """Return great-circle distance in kilometres."""
+    lat_a, lat_b = np.radians([latitude_a, latitude_b])
+    delta_longitude = np.radians(longitude_b - longitude_a)
+    cosine = (
+        np.sin(lat_a) * np.sin(lat_b)
+        + np.cos(lat_a) * np.cos(lat_b) * np.cos(delta_longitude)
+    )
+    return float(np.degrees(np.arccos(np.clip(cosine, -1, 1))) * 111.195)
 
 
 # Compatibility aliases for existing callers.

@@ -48,6 +48,8 @@ function App() {
     [analysis],
   );
   const maxMonth = Math.max(...(analysis?.by_month.map((month) => month.total) ?? [1]));
+  const maxHour = Math.max(...(analysis?.by_hour.map((hour) => hour.total) ?? [1]));
+  const maxWeekday = Math.max(...(analysis?.by_weekday.map((day) => day.total) ?? [1]));
 
   return (
     <main className="shell">
@@ -75,6 +77,8 @@ function App() {
           modelUser={modelUser}
           categories={categories}
           maxMonth={maxMonth}
+          maxHour={maxHour}
+          maxWeekday={maxWeekday}
         />
       )}
     </main>
@@ -108,7 +112,7 @@ function EmptyState() {
   );
 }
 
-function Dashboard({ analysis, modelUser, categories, maxMonth }: { analysis: Analysis; modelUser?: NonNullable<Analysis["model"]["users"]>[number]; categories: CategorySummary[]; maxMonth: number }) {
+function Dashboard({ analysis, modelUser, categories, maxMonth, maxHour, maxWeekday }: { analysis: Analysis; modelUser?: NonNullable<Analysis["model"]["users"]>[number]; categories: CategorySummary[]; maxMonth: number; maxHour: number; maxWeekday: number }) {
   const spendLocations = analysis.location?.spend_locations ?? [];
   const mapCenter: LatLngExpression = spendLocations.length
     ? [
@@ -135,6 +139,7 @@ function Dashboard({ analysis, modelUser, categories, maxMonth }: { analysis: An
       <div className="content-grid">
         <section className="panel category-panel">
           <PanelHeading icon={<CircleDollarSign size={18} />} title="Where it goes" subtitle="Spending by category" />
+          <div className="donut-wrap"><div className="donut" style={{ background: `conic-gradient(${categories.slice(0, 5).map((category, index) => `${colors[index % colors.length]} ${analysis.total_spend ? (category.total / analysis.total_spend) * 100 : 0}%`).reduce((gradient, segment, index, list) => `${gradient}${index ? " " : ""}${segment}`, "")})` }}><div className="donut-hole"><strong>{categories.length}</strong><span>categories</span></div></div><div className="donut-key">{categories.slice(0, 5).map((category, index) => <span key={category.app_category ?? category.category}><i style={{ background: colors[index % colors.length] }} />{(category.app_category ?? category.category ?? "Other").replaceAll("_", " ")}</span>)}</div></div>
           <div className="category-list">{categories.slice(0, 6).map((category, index) => {
             const name = category.app_category ?? category.category ?? "Other";
             return <div className="category-row" key={name}><div className="category-label"><span className="category-dot" style={{ background: colors[index % colors.length] }} />{name.replaceAll("_", " ")}<small>{category.transaction_count} txns</small></div><strong>{money(category.total)}</strong><div className="bar"><span style={{ width: `${analysis.total_spend ? (category.total / analysis.total_spend) * 100 : 0}%`, background: colors[index % colors.length] }} /></div></div>;
@@ -143,6 +148,20 @@ function Dashboard({ analysis, modelUser, categories, maxMonth }: { analysis: An
         <section className="panel trend-panel">
           <PanelHeading icon={<BarChart3 size={18} />} title="Spending rhythm" subtitle="Monthly total" />
           <div className="chart">{analysis.by_month.map((month) => <div className="chart-column" key={month.month}><div className="chart-value">{money(month.total)}</div><div className="chart-bar" style={{ height: `${Math.max(14, (month.total / maxMonth) * 150)}px` }} /><span>{month.month.slice(5)}</span></div>)}</div>
+        </section>
+      </div>
+      <div className="content-grid lower">
+        <section className="panel activity-panel">
+          <PanelHeading icon={<BarChart3 size={18} />} title="When you spend" subtitle="Activity by hour and weekday" />
+          <div className="mini-chart-title">Hourly intensity</div>
+          <div className="hour-chart">{analysis.by_hour.map((hour) => <div className="hour-column" key={hour.hour} title={`${hour.hour}:00 · ${money(hour.total)}`}><span style={{ height: `${Math.max(5, (hour.total / maxHour) * 72)}px` }} /><small>{hour.hour}</small></div>)}</div>
+          <div className="weekday-list">{analysis.by_weekday.map((day) => <div key={day.day_of_week}><span>{day.day_of_week.slice(0, 3)}</span><div className="bar"><i style={{ width: `${(day.total / maxWeekday) * 100}%` }} /></div><strong>{money(day.total)}</strong></div>)}</div>
+        </section>
+        <section className="panel insight-panel">
+          <PanelHeading icon={<Lightbulb size={18} />} title="Quick signals" subtitle="Patterns worth noticing" />
+          <div className="signal"><span className="signal-icon orange">↗</span><div><strong>Top category</strong><p>{(categories[0]?.app_category ?? categories[0]?.category ?? "Unknown").replaceAll("_", " ")} accounts for {analysis.total_spend ? Math.round((categories[0]?.total / analysis.total_spend) * 100) : 0}% of spend.</p></div></div>
+          <div className="signal"><span className="signal-icon teal">⌁</span><div><strong>Most active hour</strong><p>{analysis.by_hour.slice().sort((a, b) => b.total - a.total)[0]?.hour ?? "—"}:00 is your busiest spending window.</p></div></div>
+          <div className="signal"><span className="signal-icon purple">◎</span><div><strong>Explore nearby value</strong><p>Recommendations marked cheaper use a lower observed average transaction in the same category.</p></div></div>
         </section>
       </div>
       <div className="content-grid lower">
@@ -190,7 +209,7 @@ function Dashboard({ analysis, modelUser, categories, maxMonth }: { analysis: An
         </section>
         <section className="panel recommendation-panel">
           <PanelHeading icon={<Lightbulb size={18} />} title="Worth discovering" subtitle="Used by people like you" />
-          {modelUser?.recommendations.length ? <div className="recommendation-list">{modelUser.recommendations.slice(0, 5).map((recommendation) => <div className="recommendation-row" key={recommendation.merchant}><div className="merchant-icon">{recommendation.merchant.slice(0, 1).toUpperCase()}</div><div><strong>{recommendation.merchant.replace("fraud_", "")}</strong><p>{recommendation.category?.replaceAll("_", " ") ?? "Popular choice"} · {recommendation.similar_users} similar customers</p></div><span className="recommendation-score">{Math.round(recommendation.score * 100)}%</span></div>)}</div> : <p className="muted">No recommendations yet. Upload more transaction history or retrain the model.</p>}
+          {modelUser?.recommendations.length ? <div className="recommendation-list">{modelUser.recommendations.slice(0, 5).map((recommendation) => <div className="recommendation-row" key={recommendation.merchant}><div className="merchant-icon">{recommendation.merchant.slice(0, 1).toUpperCase()}</div><div><strong>{recommendation.merchant.replace("fraud_", "")}</strong><p>{recommendation.category?.replaceAll("_", " ") ?? "Popular choice"} · {recommendation.similar_users} similar customers{recommendation.distance_km !== null ? ` · ${recommendation.distance_km} km away` : ""}</p></div><span className={recommendation.cheaper_than_user ? "cheaper-badge" : "recommendation-score"}>{recommendation.cheaper_than_user ? `Save ${money(recommendation.estimated_savings)}` : `${Math.round(recommendation.score * 100)}%`}</span></div>)}</div> : <p className="muted">No recommendations yet. Upload more transaction history or retrain the model.</p>}
         </section>
       </div>
       <div className="insight-note"><CheckCircle2 size={18} /><span><strong>Next step:</strong> Your dashboard is ready. Recommendations are based on spending patterns, not financial judgement.</span></div>

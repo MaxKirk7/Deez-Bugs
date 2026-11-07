@@ -42,6 +42,7 @@ currently returns:
 - Spending totals by category
 - Spending totals by month
 - Spending totals by hour
+- Spending totals by weekday
 - Unique transaction locations
 - Enriched transaction records
 - Candidate model-input rows
@@ -81,6 +82,7 @@ now trains and stores:
 - Category distributions
 - User-to-merchant indexes
 - Segment sizes
+- Merchant profiles with observed average transaction amounts and coordinates
 
 For an uploaded CSV, the model:
 
@@ -90,6 +92,10 @@ For an uploaded CSV, the model:
 4. Finds merchants used by similar customers.
 5. Removes merchants already used by the uploaded user.
 6. Returns ranked merchant recommendations.
+
+Recommendations can also include distance, observed average transaction amount,
+and estimated savings versus the uploaded user's category average. These are
+transparent catalogue-data proxies, not verified prices.
 
 The Kaggle `is_fraud` column is not used.
 
@@ -190,9 +196,10 @@ recommendation, not as an objectively validated financial-health assessment.
 
 ### Dashboard
 
-No React dashboard has been implemented yet. The API response now contains the
-main data needed for charts and recommendation cards. This remains the main
-frontend deliverable.
+The React dashboard in [`frontend/`](../frontend/) now displays metric cards,
+category shares, monthly and hourly charts, weekday activity, spending signals,
+merchant recommendations, and the merchant-spend map. Nearby/value metadata is
+shown when the trained model has merchant coordinates and profiles.
 
 ## Next steps
 

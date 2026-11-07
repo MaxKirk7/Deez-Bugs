@@ -15,6 +15,10 @@ export type ModelUser = {
     score: number;
     similar_users: number;
     category: string | null;
+    average_amount: number;
+    distance_km: number | null;
+    cheaper_than_user: boolean;
+    estimated_savings: number;
   }>;
 };
 
@@ -26,6 +30,7 @@ export type Analysis = {
   by_category: CategorySummary[];
   by_month: Array<{ month: string; total: number; transaction_count: number }>;
   by_hour: Array<{ hour: number; total: number; transaction_count: number }>;
+  by_weekday: Array<{ day_of_week_number: number; day_of_week: string; total: number; transaction_count: number }>;
   location?: {
     spend_locations: Array<{
       merchant_latitude: number;
