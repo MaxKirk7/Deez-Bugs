@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { askAssistant } from '../api'
 import type { Theme } from '../lib/useTheme'
 import type { AssistantProfile, Dashboard as DashboardData } from '../types'
@@ -13,8 +13,6 @@ const prompts = [
   'Find my recurring subscriptions',
   'Give me a spending summary',
 ]
-const SENTENCE_DELAY_MS = 2200
-const WORD_DELAY_MS = 180
 const THINKING_TEXT = 'Thinking about your spending...'
 
 export function AssistantScreen({
@@ -38,8 +36,7 @@ export function AssistantScreen({
   const [askedPrompts, setAskedPrompts] = useState<Set<string>>(new Set())
   const [showSuggestions, setShowSuggestions] = useState(true)
   const [answer, setAnswer] = useState<string | null>(null)
-  const [sentenceIndex, setSentenceIndex] = useState(0)
-  const [visibleWordCount, setVisibleWordCount] = useState(0)
+  const [summary, setSummary] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -70,49 +67,24 @@ export function AssistantScreen({
       setShowSuggestions(false)
       setLoading(true)
       setAnswer(null)
+      setSummary([])
       setError(null)
       askAssistant(activePrompt, profile)
-        .then(setAnswer)
+        .then((result) => {
+          setAnswer(result.answer)
+          setSummary(
+            (result.summary || result.answer)
+              .split('\n')
+              .map((point) => point.replace(/^[-*]\s*/, '').trim())
+              .filter(Boolean),
+          )
+        })
         .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Unable to generate an answer.'))
         .finally(() => setLoading(false))
     }, 100)
 
     return () => window.clearTimeout(timer)
   }, [activePrompt, profile])
-
-  useEffect(() => {
-    if (!answer) {
-      setSentenceIndex(0)
-      setVisibleWordCount(0)
-      return
-    }
-
-    setSentenceIndex(0)
-    setVisibleWordCount(0)
-  }, [answer])
-
-  const sentences = answer?.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? []
-  const currentWords = sentences[sentenceIndex]?.split(/\s+/) ?? []
-  const visibleSentence = currentWords.slice(0, visibleWordCount).join(' ')
-  const isSentenceComplete = visibleWordCount >= currentWords.length
-
-  useEffect(() => {
-    if (!answer || !sentences.length) return
-
-    const timer = window.setTimeout(
-      () => {
-        if (!isSentenceComplete) {
-          setVisibleWordCount((count) => count + 1)
-        } else if (sentenceIndex < sentences.length - 1) {
-          setSentenceIndex((index) => index + 1)
-          setVisibleWordCount(0)
-        }
-      },
-      isSentenceComplete ? SENTENCE_DELAY_MS : WORD_DELAY_MS,
-    )
-
-    return () => window.clearTimeout(timer)
-  }, [answer, currentWords.length, sentenceIndex, sentences.length, visibleWordCount, isSentenceComplete])
 
   const handlePromptClick = (prompt: string) => {
     setActivePrompt(prompt)
@@ -179,17 +151,11 @@ export function AssistantScreen({
               ) : error ? (
                 error
               ) : (
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.p
-                    key={visibleSentence}
-                    initial={{ opacity: 0, x: 16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -16 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {visibleSentence || 'Your answer will appear here.'}
-                  </motion.p>
-                </AnimatePresence>
+                <ul className="list-disc space-y-2 pl-5">
+                  {summary.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
               )}
             </div>
             <button

@@ -113,13 +113,19 @@ export async function deleteUpload(ccNum: number): Promise<void> {
   if (readSavedDemoId() === ccNum) saveDemoId(null)
 }
 
-export async function askAssistant(question: string, profile: AssistantProfile): Promise<string> {
-  const result = await getJson<{ answer: string }>('/api/assistant/answer', {
+export async function askAssistant(
+  question: string,
+  profile: AssistantProfile,
+): Promise<{ answer: string; summary: string }> {
+  const result = await getJson<{ answer: string; summary: string }>('/api/assistant/answer', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question, profile }),
   })
-  return result.answer
+  if (typeof result.answer !== 'string' || typeof result.summary !== 'string') {
+    throw new Error('The backend returned an incomplete assistant response. Restart the backend and try again.')
+  }
+  return result
 }
 
 const DEMO_ID_KEY = 'penny.demoCcNum'
