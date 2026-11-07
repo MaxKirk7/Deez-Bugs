@@ -16,7 +16,8 @@ import pandas as pd
 from deez_bugs.db import REPO_ROOT, clean, connect, copy_transactions, create_schema, refresh_spend
 
 RAW = [REPO_ROOT / "data" / "raw" / f for f in ("transactions_part1.csv", "transactions_part2.csv")]
-COLUMNS = ["trans_date_trans_time", "cc_num", "merchant", "category", "amt", "dob", "is_fraud"]
+COLUMNS = ["trans_date_trans_time", "cc_num", "merchant", "category", "amt", "dob", "is_fraud",
+           "city", "state", "lat", "long", "merch_lat", "merch_long"]
 
 
 def read_reference_users() -> pd.DataFrame:
@@ -41,7 +42,8 @@ def main() -> None:
 
     print("2/4 Reading data/raw/ ...")
     df = read_reference_users()
-    users = df.groupby("cc_num").dob.first()
+    # One row per person: date of birth + home location (the same on every row of a card).
+    users = df.groupby("cc_num")[["dob", "city", "state", "lat", "long"]].first()
     print(f"   {len(df):,} purchases from {len(users)} users")
 
     print("3/4 Loading...")
@@ -53,9 +55,12 @@ def main() -> None:
         if existing:
             conn.execute("DELETE FROM users WHERE source = 'reference'")
         conn.execute(
-            """INSERT INTO users (cc_num, source, dob)
-               SELECT cc, 'reference', dob FROM unnest(%s::bigint[], %s::date[]) AS u(cc, dob)""",
-            (users.index.tolist(), users.tolist()),
+            """INSERT INTO users (cc_num, source, dob, city, state, lat, long)
+               SELECT cc, 'reference', dob, city, state, lat, long
+               FROM unnest(%s::bigint[], %s::date[], %s::text[], %s::text[], %s::float8[], %s::float8[])
+                    AS u(cc, dob, city, state, lat, long)""",
+            (users.index.tolist(), users.dob.tolist(), users.city.tolist(), users.state.tolist(),
+             users.lat.tolist(), users.long.tolist()),
         )
         conn.commit()
         # Save in batches, so a dropped connection loses one batch, not everything.
