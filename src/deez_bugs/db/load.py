@@ -1,34 +1,48 @@
-"""Load the Kaggle transactions CSV into Tiger Data.
+"""Load the raw Kaggle CSVs from data/raw/ into the kaggle_transactions table in Tiger Data.
 
-    uv run tiger-load                  # first 10,000 rows of fraudTrain.csv (quick test)
-    uv run tiger-load --rows 100000    # more rows
-    uv run tiger-load --all            # everything (train + test, ~1.85M rows, takes a few minutes)
+    uv run python data/transaction.py   # once: download the CSVs into data/raw/
+    uv run tiger-load                   # load every user's latest 12 months (~927k rows, 999 users)
+    uv run tiger-load --replace --yes   # empty the table first, then load
+
+What gets loaded: all 999 users, each with their most recent 12 months of purchases.
+The data is stored as-is except: gender and the fraud label are dropped, and the
+meaningless "fraud_" prefix is stripped from merchant names.
 
 Safe to re-run: rows already in the database are skipped.
 """
 
 import argparse
+from pathlib import Path
 
-import kagglehub
 import pandas as pd
 
-from deez_bugs.db import connect, create_schema
+from deez_bugs.db import REPO_ROOT, connect, create_schema
 
-DATASET = "kartik2112/fraud-detection"
+RAW_DIR = REPO_ROOT / "data" / "raw"
+FILES = ["transactions_part1.csv", "transactions_part2.csv"]
+MONTHS = 12
 
 # Column order used for COPY. Must match the names in schema.sql.
 COLUMNS = [
     "trans_time", "trans_num", "cc_num", "merchant", "category", "amt",
-    "first", "last", "gender", "street", "city", "state", "zip",
+    "first", "last", "street", "city", "state", "zip",
     "lat", "long", "city_pop", "job", "dob", "unix_time",
-    "merch_lat", "merch_long", "is_fraud",
+    "merch_lat", "merch_long",
 ]
 COLS_SQL = ", ".join(f'"{c}"' for c in COLUMNS)
 
 
-def read_csv(path: str, nrows: int | None) -> pd.DataFrame:
-    df = pd.read_csv(path, index_col=0, nrows=nrows)
+def read_raw() -> pd.DataFrame:
+    """Both CSVs, keeping each user's latest 12 months."""
+    missing = [f for f in FILES if not (RAW_DIR / f).exists()]
+    if missing:
+        raise SystemExit(f"Missing {missing} in data/raw/. Run: uv run python data/transaction.py")
+    df = pd.concat(pd.read_csv(RAW_DIR / f, index_col=0) for f in FILES)
     df = df.rename(columns={"trans_date_trans_time": "trans_time"})
+    df["trans_time"] = pd.to_datetime(df.trans_time)
+    last = df.groupby("cc_num").trans_time.transform("max")
+    df = df[df.trans_time > last - pd.DateOffset(months=MONTHS)]
+    df["merchant"] = df.merchant.str.removeprefix("fraud_")
     return df[COLUMNS]
 
 
@@ -40,12 +54,12 @@ def load_dataframe(df: pd.DataFrame, batch_size: int = 50_000) -> int:
             batch = df.iloc[start : start + batch_size]
             with conn.transaction():
                 conn.execute(
-                    "CREATE TEMP TABLE staging (LIKE transactions INCLUDING DEFAULTS) ON COMMIT DROP"
+                    "CREATE TEMP TABLE staging (LIKE kaggle_transactions INCLUDING DEFAULTS) ON COMMIT DROP"
                 )
                 with conn.cursor().copy(f"COPY staging ({COLS_SQL}) FROM STDIN WITH (FORMAT csv)") as copy:
                     copy.write(batch.to_csv(index=False, header=False))
                 cur = conn.execute(
-                    f"INSERT INTO transactions ({COLS_SQL}) SELECT {COLS_SQL} FROM staging "
+                    f"INSERT INTO kaggle_transactions ({COLS_SQL}) SELECT {COLS_SQL} FROM staging "
                     "ON CONFLICT DO NOTHING"
                 )
                 inserted += cur.rowcount
@@ -55,30 +69,32 @@ def load_dataframe(df: pd.DataFrame, batch_size: int = 50_000) -> int:
 
 def refresh_aggregates() -> None:
     with connect(autocommit=True) as conn:
-        conn.execute("CALL refresh_continuous_aggregate('daily_spend', NULL, NULL)")
+        conn.execute("CALL refresh_continuous_aggregate('kaggle_daily_spend', NULL, NULL)")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--rows", type=int, default=10_000, help="rows to load from fraudTrain.csv (default 10,000)")
-    parser.add_argument("--all", action="store_true", help="load every row of fraudTrain.csv and fraudTest.csv")
+    parser.add_argument("--replace", action="store_true", help="empty kaggle_transactions before loading")
+    parser.add_argument("--yes", action="store_true", help="confirm --replace")
     args = parser.parse_args()
+    if args.replace and not args.yes:
+        raise SystemExit("--replace empties kaggle_transactions. Add --yes to confirm.")
 
     print("1/4 Creating table + hypertable (if needed)...")
     create_schema()
+    if args.replace:
+        with connect() as conn:
+            conn.execute("TRUNCATE kaggle_transactions")
+        print("   emptied kaggle_transactions")
 
-    print("2/4 Finding the dataset...")
-    path = kagglehub.dataset_download(DATASET)
-    files = ["fraudTrain.csv", "fraudTest.csv"] if args.all else ["fraudTrain.csv"]
+    print("2/4 Reading data/raw/ ...")
+    df = read_raw()
+    print(f"   {len(df):,} rows, {df.cc_num.nunique()} users (latest {MONTHS} months each)")
 
     print("3/4 Loading rows...")
-    total = 0
-    for name in files:
-        print(f"   {name}")
-        df = read_csv(f"{path}/{name}", None if args.all else args.rows)
-        total += load_dataframe(df)
+    total = load_dataframe(df)
 
-    print("4/4 Refreshing the daily_spend aggregate...")
+    print("4/4 Refreshing the kaggle_daily_spend aggregate...")
     refresh_aggregates()
 
     print(f"✅ Done. {total:,} new rows added.")

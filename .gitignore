@@ -18,3 +18,6 @@ build/
 
 # env
 .env
+
+# Raw source CSVs: never edit, never commit.
+data/raw/

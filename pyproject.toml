@@ -12,6 +12,7 @@ dependencies = [
     "fastapi[standard]",
     "psycopg[binary]>=3.3.8",
     "python-dotenv>=1.2.4",
+    "sqlparse>=0.6.1",
 ]
 
 [project.scripts]
