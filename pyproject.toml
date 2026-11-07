@@ -2,7 +2,6 @@
 name = "deez-bugs"
 version = "0.1.0"
 description = "Add your description here"
-readme = "README.md"
 authors = [
     { name = "max", email = "max_kirk1@icloud.com" }
 ]
@@ -10,6 +9,7 @@ requires-python = ">=3.13"
 dependencies = [
     "kagglehub>=1.0.3",
     "pandas>=3.1.1",
+    "fastapi[standard]",
 ]
 
 [project.scripts]
