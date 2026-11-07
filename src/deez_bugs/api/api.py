@@ -31,13 +31,13 @@ class AssistantRequest(BaseModel):
 
 @router.post("/assistant/answer")
 def assistant_answer(request: AssistantRequest):
-    """Generate an assistant answer from pre-aggregated spending information."""
+    """Generate a speech answer and a separate display-ready bullet summary."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured on the backend.")
 
     client = OpenAI(api_key=api_key)
-    instructions = (
+    answer_instructions = (
         "You are Penny, a careful personal finance assistant. Answer using only the supplied "
         "aggregated spending profile. Do not invent transactions, merchants, income, or facts. "
         "Use the user's currency. Give a concise, friendly answer in plain text, with specific "
@@ -46,22 +46,43 @@ def assistant_answer(request: AssistantRequest):
     )
     prompt = f"User question: {request.question}\nAggregated profile:\n{request.profile.model_dump_json()}"
     try:
-        response = client.chat.completions.create(
+        answer_response = client.chat.completions.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             temperature=0.3,
             max_tokens=300,
             messages=[
-                {"role": "system", "content": instructions},
+                {"role": "system", "content": answer_instructions},
                 {"role": "user", "content": prompt},
             ],
         )
-        answer = response.choices[0].message.content
+        answer = answer_response.choices[0].message.content
+        if not answer:
+            raise HTTPException(status_code=502, detail="Assistant provider returned an empty answer.")
+
+        summary_response = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            temperature=0,
+            max_tokens=300,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Convert the supplied assistant answer into a concise bullet-point summary. "
+                        "Return only bullet points, one per line, each beginning with '- '. "
+                        "Use 2 to 5 bullets. Preserve every important figure and claim exactly. "
+                        "Do not add facts, headings, markdown fences, or commentary."
+                    ),
+                },
+                {"role": "user", "content": answer},
+            ],
+        )
+        summary = summary_response.choices[0].message.content
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=f"Assistant provider request failed: {exc}") from exc
 
-    if not answer:
-        raise HTTPException(status_code=502, detail="Assistant provider returned an empty answer.")
-    return {"answer": answer.strip()}
+    if not summary:
+        raise HTTPException(status_code=502, detail="Assistant provider returned an empty summary.")
+    return {"answer": answer.strip(), "summary": summary.strip()}
 
 
 @router.post("/upload-csv/")
