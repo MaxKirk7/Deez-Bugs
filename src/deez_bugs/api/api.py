@@ -13,7 +13,8 @@ router = APIRouter(tags=["Data Upload"])
 async def upload_csv(file: UploadFile = File(...)):
     """
     Accepts a bank-statement CSV with the columns trans_date_trans_time, merchant,
-    category, amt. Checks every row, then stores it as a new user in the shared
+    category, amt (optional: merch_lat, merch_long for where each purchase happened).
+    Checks every row, then stores it as a new user in the shared
     `transactions` table (next to the 908 reference users).
     """
     if not file.filename.endswith('.csv'):
