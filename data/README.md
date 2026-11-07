@@ -23,6 +23,29 @@ train = pd.read_csv(f"{path}/fraudTrain.csv", index_col=0)  # index_col=0 drops 
 test  = pd.read_csv(f"{path}/fraudTest.csv",  index_col=0)
 ```
 
+## Training the spending profile model
+
+The feature pipeline creates one row per `cc_num`, using only fields that can
+also be derived from an uploaded statement. Train the unsupervised spending
+profile model with:
+with:
+
+```bash
+uv run python data/train_model.py /path/to/fraudTrain.csv
+```
+
+The model uses transaction counts and amounts, category shares, time-of-day
+and weekend behaviour, distance from home to merchant, user age, and city
+population. It does not use `is_fraud`. It stores user feature vectors,
+K-Means segment labels, and user-to-merchant indexes so uploaded users can be
+matched with similar customers and given merchant recommendations.
+
+To retrain after changing the training data or cluster count:
+
+```bash
+uv run python data/train_model.py /path/to/fraudTrain.csv --clusters 8 --force
+```
+
 | File | Rows | Size | Date range | Fraud rows | Fraud rate |
 |---|---|---|---|---|---|
 | `fraudTrain.csv` | 1,296,675 | 335 MB | 2019-01-01 → 2020-06-21 | 7,506 | 0.58% |

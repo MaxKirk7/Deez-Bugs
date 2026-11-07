@@ -10,6 +10,7 @@ dependencies = [
     "kagglehub>=1.0.3",
     "pandas>=3.1.1",
     "fastapi[standard]",
+    "scikit-learn>=1.6.0",
 ]
 
 [project.scripts]

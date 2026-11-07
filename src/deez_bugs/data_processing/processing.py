@@ -31,6 +31,40 @@ REQUIRED_COLUMNS = {
     "cc_num",
 }
 
+_COLUMN_ALIASES = {
+    "date": "trans_date_trans_time",
+    "transaction_date": "trans_date_trans_time",
+    "timestamp": "trans_date_trans_time",
+    "description": "merchant",
+    "transaction_description": "merchant",
+    "merchant_name": "merchant",
+    "amount": "amt",
+    "value": "amt",
+    "debit": "amt",
+    "user_id": "cc_num",
+}
+
+
+def normalize_transactions(frame: pd.DataFrame) -> pd.DataFrame:
+    """Map common bank-statement columns to the canonical input schema."""
+    normalized = frame.copy()
+    normalized.columns = [
+        str(column).strip().lower().replace(" ", "_")
+        for column in normalized.columns
+    ]
+    normalized = normalized.rename(
+        columns={
+            column: target
+            for column, target in _COLUMN_ALIASES.items()
+            if column in normalized.columns and target not in normalized.columns
+        }
+    )
+    if "cc_num" not in normalized:
+        normalized["cc_num"] = "uploaded_user"
+    if "category" not in normalized:
+        normalized["category"] = "other"
+    return normalized
+
 
 def _json_records(frame: pd.DataFrame) -> list[dict]:
     """Convert a frame to JSON-safe records while retaining all columns."""
@@ -47,7 +81,7 @@ def process_csv(contents: bytes) -> dict:
     added alongside them so the dashboard and model pipeline can use the same
     processed data without committing to a final feature list yet.
     """
-    frame = pd.read_csv(BytesIO(contents))
+    frame = normalize_transactions(pd.read_csv(BytesIO(contents)))
     missing = REQUIRED_COLUMNS - set(frame.columns)
     if missing:
         raise ValueError(f"CSV is missing required columns: {', '.join(sorted(missing))}")
@@ -61,9 +95,9 @@ def process_csv(contents: bytes) -> dict:
     )
     frame["month"] = frame["date"].dt.to_period("M").astype(str)
     frame["day_of_week"] = frame["date"].dt.day_name()
-    frame["day_of_week_number"] = frame["date"].dt.dayofweek
+    frame["day_of_week_number"] = frame["date"].dt.day_of_week
     frame["hour"] = frame["date"].dt.hour
-    frame["is_weekend"] = frame["date"].dt.dayofweek >= 5
+    frame["is_weekend"] = frame["date"].dt.day_of_week >= 5
 
     if {"merch_lat", "merch_long"} <= set(frame.columns):
         frame["merchant_latitude"] = pd.to_numeric(frame["merch_lat"], errors="coerce")
