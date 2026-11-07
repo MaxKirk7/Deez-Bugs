@@ -72,3 +72,5 @@ All data lives in a shared Tiger Data (TimescaleDB) cloud database. **New to the
   uv run python db/verify.py    # should end with ALL CHECKS PASSED
   ```
 - **Delete my data:** `uv run python db/delete_user.py <user_id> --yes` removes a user and every row about them, including their totals in the aggregates.
+## Frontend
+The web app lives in [`frontend/`](../frontend/). Run it with `cd frontend && npm install && npm run dev`, then open http://localhost:5173 (add `?demo` to skip straight to the dashboard). **Backend team:** the JSON shapes the UI expects are in [`frontend/src/types.ts`](../frontend/src/types.ts). See [`frontend/README.md`](../frontend/README.md).
