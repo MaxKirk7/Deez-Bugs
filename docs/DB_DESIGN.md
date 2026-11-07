@@ -1,7 +1,7 @@
 # Database design: simplest version
 
 **Status: built** on branch `feat/simple-db`. Decisions taken:
-- **Uploads:** a CSV with the dataset's columns `trans_date_trans_time, merchant, category, amt`. Every category is checked against the 14, and bad files are rejected.
+- **Uploads:** a CSV with the dataset's columns `trans_date_trans_time, merchant, category, amt` (plus optional `merch_lat, merch_long`). Every category is checked against the 14, and bad files are rejected.
 - **Spending only:** rows with amount ≤ 0 are ignored.
 - **Latest 12 months** per reference user.
 - **One Tiger continuous aggregate** (`daily_category_spend`) was added.
@@ -36,7 +36,8 @@ Each row is one card purchase with 23 columns:
 |---|---|
 | **What we need** | `trans_date_trans_time` (when), `cc_num` (who), `merchant` (where), `category` (what kind), `amt` (how much, USD) |
 | Person details | `first`, `last`, `gender`, `dob`, `job`, `street`, `city`, `state`, `zip`, `lat`, `long`, `city_pop` |
-| Not useful to us | `trans_num`, `unix_time` (wrong year), `merch_lat`, `merch_long`, `is_fraud`, an unnamed row number |
+| Location (stored) | `city`, `state`, `lat`, `long` (home) and `merch_lat`, `merch_long` (where the purchase happened) |
+| Not useful to us | `trans_num`, `unix_time` (wrong year), `is_fraud`, an unnamed row number |
 
 The 14 categories: `grocery_pos`, `grocery_net`, `food_dining`, `gas_transport`, `shopping_pos`, `shopping_net`, `home`, `kids_pets`, `entertainment`, `personal_care`, `health_fitness`, `travel`, `misc_pos`, `misc_net` (`_net` = online, `_pos` = in person).
 
@@ -63,6 +64,8 @@ users  1 ──── many  transactions
 | `cc_num` | BIGINT, primary key | `2291163933867244` (reference) or `1` (upload) | The user ID. Same name as in the CSV. |
 | `source` | TEXT: `reference` or `upload` | `reference` | Tells the 908 comparison users apart from real app users |
 | `dob` | DATE, nullable | `1968-03-19` | Age, a likely ML feature ("people your age") |
+| `city`, `state` | TEXT, nullable | `Columbia`, `SC` | Home location |
+| `lat`, `long` | DOUBLE PRECISION, nullable | `33.9659`, `-80.9355` | Home coordinates, for maps and routes |
 | `created_at` | TIMESTAMPTZ | now | When they were added |
 
 ### `transactions`: every purchase, from everyone (Tiger **hypertable**)
@@ -74,6 +77,7 @@ users  1 ──── many  transactions
 | `merchant` | TEXT | `Kirlin and Sons` (the meaningless `fraud_` prefix is stripped) |
 | `category` | TEXT | `personal_care` |
 | `amount` | NUMERIC(10,2) | `2.86` (**positive = money spent**, as in the CSV) |
+| `merch_lat`, `merch_long` | DOUBLE PRECISION, nullable | `33.986391`, `-81.200714` (where the purchase happened; optional in uploads) |
 
 - **Hypertable** = Tiger splits it into monthly chunks automatically, so per-user and date-range queries stay fast. It's also what the "Best Use of Tiger Data" prize looks for.
 - One index: `(cc_num, ts)`. That's the only lookup we need: "get this user's transactions".
@@ -85,7 +89,7 @@ users  1 ──── many  transactions
 
 **908 users × their latest 12 months ≈ 924,000 rows**, about 200 MB. The latest 12 months is plenty for spending habits, and halves the size compared with loading all 2 years.
 
-**Not stored:** names, gender (fairness), street, zip, lat/long, job, city, city_pop, `trans_num`, `unix_time`, merchant coordinates, the fraud label. They aren't needed for categories, scores or ML. Anything can be added later from the CSV if it turns out we need it.
+**Not stored:** names, gender (fairness), street, zip, job, city_pop, `trans_num`, `unix_time`, the fraud label. (Location **is** stored: home city/state/lat/long and the merchant's lat/long, for maps and routes.) They aren't needed for categories, scores or ML. Anything can be added later from the CSV if it turns out we need it.
 
 ---
 
