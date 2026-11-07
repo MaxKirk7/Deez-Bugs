@@ -50,6 +50,7 @@ with connect() as conn:             # any SQL. Always use %s, never f-strings.
 **The API** (`uv run python -m deez_bugs.api.api`, then open http://127.0.0.1:8000/docs):
 - `POST /upload-csv/` takes a CSV with columns `trans_date_trans_time, merchant, category, amt` (optional: `merch_lat, merch_long`) and returns the new user's `cc_num`. Unknown categories or missing columns are rejected with a 400.
 - `GET /users/{cc_num}/categories` returns that user's % per category next to the reference users' average.
+- `GET /users/{cc_num}/places` returns the map data: home (`lat`/`long` from `users`) and purchases grouped into areas (visits, money spent, top shops, km from home). Uploads can add home with optional `lat, long, city` columns.
 
 ---
 
