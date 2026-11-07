@@ -97,6 +97,21 @@ def save_upload(df: pd.DataFrame) -> dict:
     return {"cc_num": cc_num, "rows": len(rows)}
 
 
+def delete_upload(cc_num: int) -> bool:
+    """Delete my data: remove an uploaded user and all their transactions.
+
+    Only works on uploads (never the reference users). Returns False if there was nothing to delete.
+    """
+    with connect() as conn:
+        days = conn.execute("SELECT MIN(ts), MAX(ts) FROM transactions WHERE cc_num = %s", (cc_num,)).fetchone()
+        deleted = conn.execute(
+            "DELETE FROM users WHERE cc_num = %s AND source = 'upload'", (cc_num,)).rowcount   # cascades to transactions
+    if deleted and days[0] is not None:
+        # Take their totals out of daily_category_spend straight away.
+        refresh_spend(pd.Timestamp(days[0]).floor("D"), pd.Timestamp(days[1]).floor("D") + pd.Timedelta(days=1))
+    return bool(deleted)
+
+
 def category_shares(cc_num: int) -> list[dict]:
     """This user's % of spend per category, next to the average of the reference users."""
     with connect() as conn:

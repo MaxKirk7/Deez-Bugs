@@ -9,9 +9,9 @@
  * Vite forwards /api/... to http://localhost:8000/... (see vite.config.ts).
  */
 import { agentScripts } from './mock/agentDemo'
-import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights, mockNeighbourMix, toCsv } from './mock/demoData'
+import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights, toCsv } from './mock/demoData'
 import { CATEGORIES } from './lib/categories'
-import type { AgentResult, AgentStep, Category, Dashboard, Insights, StatementRow, UploadResult, UserCategories } from './types'
+import type { AgentResult, AgentStep, Category, Dashboard, Insights, StatementRow, UploadResult } from './types'
 
 const FORCE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -87,28 +87,50 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
     return { ...base, mode: 'demo', insights: mockInsights(rows) }
   }
 
+  // Alex is uploaded once, then re-used: no new copy in the database on every click.
+  if (demo) {
+    const saved = readSavedDemoId()
+    if (saved !== null) {
+      try {
+        return { ...base, mode: 'live', insights: await getJson<Insights>(`/api/users/${saved}/insights`) }
+      } catch {
+        // deleted or database reset: upload again below
+      }
+    }
+  }
+
   const body = new FormData()
   body.append('file', new File([csv], base.filename, { type: 'text/csv' }))
   const uploaded = await getJson<UploadResult>('/api/upload-csv/', { method: 'POST', body })
+  if (demo) saveDemoId(uploaded.cc_num)
   const insights = await getJson<Insights>(`/api/users/${uploaded.cc_num}/insights`)
   return { ...base, mode: 'live', insights }
 }
 
-const mixCache = new Map<number, Promise<Record<Category, number>>>()
+/** "Delete my data": removes an uploaded user and all their transactions. */
+export async function deleteUpload(ccNum: number): Promise<void> {
+  await getJson(`/api/users/${ccNum}`, { method: 'DELETE' })
+  if (readSavedDemoId() === ccNum) saveDemoId(null)
+}
 
-/** A neighbour's spending mix (for the hover card on the graph). Cached. */
-export function neighbourMix(ccNum: number, live: boolean): Promise<Record<Category, number>> {
-  if (!mixCache.has(ccNum)) {
-    mixCache.set(
-      ccNum,
-      live
-        ? getJson<UserCategories>(`/api/users/${ccNum}/categories`).then(
-            (r) => Object.fromEntries(r.categories.map((c) => [c.category, c.your_share])) as Record<Category, number>,
-          )
-        : wait(250).then(() => mockNeighbourMix(ccNum)),
-    )
+const DEMO_ID_KEY = 'penny.demoCcNum'
+
+function readSavedDemoId(): number | null {
+  try {
+    const v = localStorage.getItem(DEMO_ID_KEY)
+    return v ? Number(v) : null
+  } catch {
+    return null
   }
-  return mixCache.get(ccNum)!
+}
+
+function saveDemoId(ccNum: number | null) {
+  try {
+    if (ccNum === null) localStorage.removeItem(DEMO_ID_KEY)
+    else localStorage.setItem(DEMO_ID_KEY, String(ccNum))
+  } catch {
+    // storage blocked (private mode): fine, Alex just gets uploaded again
+  }
 }
 
 /** PLACEHOLDER: the savings agent isn't built yet, so this always plays a scripted run. */

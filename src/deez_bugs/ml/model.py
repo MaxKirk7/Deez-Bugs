@@ -12,7 +12,7 @@ How it works (details in HOW_IT_WORKS.md):
      user spends a bigger share than people like them become recommendations.
 """
 
-from functools import lru_cache
+import threading
 
 import numpy as np
 import pandas as pd
@@ -115,8 +115,19 @@ class SpendingModel:
         return {"cc_num": cc_num, **result}
 
 
-@lru_cache(maxsize=1)
+_model: SpendingModel | None = None
+_model_lock = threading.Lock()
+
+
 def get_model() -> SpendingModel:
-    """Train once on the reference users, then reuse (takes a few seconds)."""
-    spend = load_spend("reference")
-    return SpendingModel().fit(to_shares(spend), monthly_spend(spend))
+    """Train once on the reference users, then reuse (takes a few seconds).
+
+    The lock makes requests that arrive during training wait for it, instead of
+    each starting their own training run.
+    """
+    global _model
+    with _model_lock:
+        if _model is None:
+            spend = load_spend("reference")
+            _model = SpendingModel().fit(to_shares(spend), monthly_spend(spend))
+        return _model
