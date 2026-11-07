@@ -1,0 +1,380 @@
+{
+    "transaction_count": 8,
+    "user_count": 2,
+    "total_spend": 513.44,
+    "average_transaction": 64.18,
+    "largest_transaction": {
+        "merchant": "fraud_Travel Co",
+        "category": "travel",
+        "amt": 240,
+        "trans_date_trans_time": "2020-06-05 13:00:00",
+        "merch_lat": 40.6413,
+        "merch_long": -73.7781,
+        "cc_num": 6011000990139424,
+        "date": "2020-06-05T13:00:00",
+        "amount": 240,
+        "app_category": "travel",
+        "month": "2020-06",
+        "day_of_week": "Friday",
+        "day_of_week_number": 4,
+        "hour": 13,
+        "is_weekend": false,
+        "merchant_latitude": 40.6413,
+        "merchant_longitude": -73.7781
+    },
+    "by_category": [
+        {
+            "app_category": "travel",
+            "total": 240,
+            "transaction_count": 1
+        },
+        {
+            "app_category": "shopping",
+            "total": 89.99,
+            "transaction_count": 1
+        },
+        {
+            "app_category": "groceries",
+            "total": 74.35,
+            "transaction_count": 2
+        },
+        {
+            "app_category": "transport",
+            "total": 58.2,
+            "transaction_count": 1
+        },
+        {
+            "app_category": "eating_out",
+            "total": 32.9,
+            "transaction_count": 2
+        },
+        {
+            "app_category": "entertainment",
+            "total": 18,
+            "transaction_count": 1
+        }
+    ],
+    "by_month": [
+        {
+            "month": "2020-06",
+            "total": 513.44,
+            "transaction_count": 8
+        }
+    ],
+    "by_hour": [
+        {
+            "hour": 9,
+            "total": 42.75,
+            "transaction_count": 1
+        },
+        {
+            "hour": 10,
+            "total": 31.6,
+            "transaction_count": 1
+        },
+        {
+            "hour": 11,
+            "total": 5.4,
+            "transaction_count": 1
+        },
+        {
+            "hour": 13,
+            "total": 240,
+            "transaction_count": 1
+        },
+        {
+            "hour": 17,
+            "total": 58.2,
+            "transaction_count": 1
+        },
+        {
+            "hour": 19,
+            "total": 27.5,
+            "transaction_count": 1
+        },
+        {
+            "hour": 20,
+            "total": 89.99,
+            "transaction_count": 1
+        },
+        {
+            "hour": 21,
+            "total": 18,
+            "transaction_count": 1
+        }
+    ],
+    "location": {
+        "transaction_locations": [
+            {
+                "merchant_latitude": 40.7128,
+                "merchant_longitude": -74.006
+            },
+            {
+                "merchant_latitude": 40.7135,
+                "merchant_longitude": -74.0055
+            },
+            {
+                "merchant_latitude": 40.7306,
+                "merchant_longitude": -73.9866
+            },
+            {
+                "merchant_latitude": 40.758,
+                "merchant_longitude": -73.9855
+            },
+            {
+                "merchant_latitude": 40.706,
+                "merchant_longitude": -74.0086
+            },
+            {
+                "merchant_latitude": 40.6413,
+                "merchant_longitude": -73.7781
+            }
+        ],
+        "unique_location_count": 6
+    },
+    "transactions": [
+        {
+            "merchant": "fraud_Grocery Store",
+            "category": "grocery_pos",
+            "amt": 42.75,
+            "trans_date_trans_time": "2020-06-01 09:15:00",
+            "merch_lat": 40.7128,
+            "merch_long": -74.006,
+            "cc_num": 4532015112830366,
+            "date": "2020-06-01T09:15:00",
+            "amount": 42.75,
+            "app_category": "groceries",
+            "month": "2020-06",
+            "day_of_week": "Monday",
+            "day_of_week_number": 0,
+            "hour": 9,
+            "is_weekend": false,
+            "merchant_latitude": 40.7128,
+            "merchant_longitude": -74.006
+        },
+        {
+            "merchant": "fraud_Coffee Shop",
+            "category": "food_dining",
+            "amt": 5.4,
+            "trans_date_trans_time": "2020-06-01 11:30:00",
+            "merch_lat": 40.7135,
+            "merch_long": -74.0055,
+            "cc_num": 4532015112830366,
+            "date": "2020-06-01T11:30:00",
+            "amount": 5.4,
+            "app_category": "eating_out",
+            "month": "2020-06",
+            "day_of_week": "Monday",
+            "day_of_week_number": 0,
+            "hour": 11,
+            "is_weekend": false,
+            "merchant_latitude": 40.7135,
+            "merchant_longitude": -74.0055
+        },
+        {
+            "merchant": "fraud_Gas Station",
+            "category": "gas_transport",
+            "amt": 58.2,
+            "trans_date_trans_time": "2020-06-02 17:45:00",
+            "merch_lat": 40.7306,
+            "merch_long": -73.9866,
+            "cc_num": 4532015112830366,
+            "date": "2020-06-02T17:45:00",
+            "amount": 58.2,
+            "app_category": "transport",
+            "month": "2020-06",
+            "day_of_week": "Tuesday",
+            "day_of_week_number": 1,
+            "hour": 17,
+            "is_weekend": false,
+            "merchant_latitude": 40.7306,
+            "merchant_longitude": -73.9866
+        },
+        {
+            "merchant": "fraud_Online Store",
+            "category": "shopping_net",
+            "amt": 89.99,
+            "trans_date_trans_time": "2020-06-03 20:10:00",
+            "merch_lat": 40.758,
+            "merch_long": -73.9855,
+            "cc_num": 4532015112830366,
+            "date": "2020-06-03T20:10:00",
+            "amount": 89.99,
+            "app_category": "shopping",
+            "month": "2020-06",
+            "day_of_week": "Wednesday",
+            "day_of_week_number": 2,
+            "hour": 20,
+            "is_weekend": false,
+            "merchant_latitude": 40.758,
+            "merchant_longitude": -73.9855
+        },
+        {
+            "merchant": "fraud_Grocery Store",
+            "category": "grocery_pos",
+            "amt": 31.6,
+            "trans_date_trans_time": "2020-06-04 10:05:00",
+            "merch_lat": 40.7128,
+            "merch_long": -74.006,
+            "cc_num": 6011000990139424,
+            "date": "2020-06-04T10:05:00",
+            "amount": 31.6,
+            "app_category": "groceries",
+            "month": "2020-06",
+            "day_of_week": "Thursday",
+            "day_of_week_number": 3,
+            "hour": 10,
+            "is_weekend": false,
+            "merchant_latitude": 40.7128,
+            "merchant_longitude": -74.006
+        },
+        {
+            "merchant": "fraud_Restaurant",
+            "category": "food_dining",
+            "amt": 27.5,
+            "trans_date_trans_time": "2020-06-04 19:20:00",
+            "merch_lat": 40.706,
+            "merch_long": -74.0086,
+            "cc_num": 6011000990139424,
+            "date": "2020-06-04T19:20:00",
+            "amount": 27.5,
+            "app_category": "eating_out",
+            "month": "2020-06",
+            "day_of_week": "Thursday",
+            "day_of_week_number": 3,
+            "hour": 19,
+            "is_weekend": false,
+            "merchant_latitude": 40.706,
+            "merchant_longitude": -74.0086
+        },
+        {
+            "merchant": "fraud_Travel Co",
+            "category": "travel",
+            "amt": 240,
+            "trans_date_trans_time": "2020-06-05 13:00:00",
+            "merch_lat": 40.6413,
+            "merch_long": -73.7781,
+            "cc_num": 6011000990139424,
+            "date": "2020-06-05T13:00:00",
+            "amount": 240,
+            "app_category": "travel",
+            "month": "2020-06",
+            "day_of_week": "Friday",
+            "day_of_week_number": 4,
+            "hour": 13,
+            "is_weekend": false,
+            "merchant_latitude": 40.6413,
+            "merchant_longitude": -73.7781
+        },
+        {
+            "merchant": "fraud_Entertainment",
+            "category": "entertainment",
+            "amt": 18,
+            "trans_date_trans_time": "2020-06-06 21:15:00",
+            "merch_lat": 40.7306,
+            "merch_long": -73.9866,
+            "cc_num": 6011000990139424,
+            "date": "2020-06-06T21:15:00",
+            "amount": 18,
+            "app_category": "entertainment",
+            "month": "2020-06",
+            "day_of_week": "Saturday",
+            "day_of_week_number": 5,
+            "hour": 21,
+            "is_weekend": true,
+            "merchant_latitude": 40.7306,
+            "merchant_longitude": -73.9866
+        }
+    ],
+    "model_input": {
+        "status": "candidate_features",
+        "feature_columns": [
+            "amount",
+            "app_category",
+            "hour",
+            "day_of_week_number",
+            "is_weekend",
+            "merchant_latitude",
+            "merchant_longitude"
+        ],
+        "rows": [
+            {
+                "amount": 42.75,
+                "app_category": "groceries",
+                "hour": 9,
+                "day_of_week_number": 0,
+                "is_weekend": false,
+                "merchant_latitude": 40.7128,
+                "merchant_longitude": -74.006
+            },
+            {
+                "amount": 5.4,
+                "app_category": "eating_out",
+                "hour": 11,
+                "day_of_week_number": 0,
+                "is_weekend": false,
+                "merchant_latitude": 40.7135,
+                "merchant_longitude": -74.0055
+            },
+            {
+                "amount": 58.2,
+                "app_category": "transport",
+                "hour": 17,
+                "day_of_week_number": 1,
+                "is_weekend": false,
+                "merchant_latitude": 40.7306,
+                "merchant_longitude": -73.9866
+            },
+            {
+                "amount": 89.99,
+                "app_category": "shopping",
+                "hour": 20,
+                "day_of_week_number": 2,
+                "is_weekend": false,
+                "merchant_latitude": 40.758,
+                "merchant_longitude": -73.9855
+            },
+            {
+                "amount": 31.6,
+                "app_category": "groceries",
+                "hour": 10,
+                "day_of_week_number": 3,
+                "is_weekend": false,
+                "merchant_latitude": 40.7128,
+                "merchant_longitude": -74.006
+            },
+            {
+                "amount": 27.5,
+                "app_category": "eating_out",
+                "hour": 19,
+                "day_of_week_number": 3,
+                "is_weekend": false,
+                "merchant_latitude": 40.706,
+                "merchant_longitude": -74.0086
+            },
+            {
+                "amount": 240,
+                "app_category": "travel",
+                "hour": 13,
+                "day_of_week_number": 4,
+                "is_weekend": false,
+                "merchant_latitude": 40.6413,
+                "merchant_longitude": -73.7781
+            },
+            {
+                "amount": 18,
+                "app_category": "entertainment",
+                "hour": 21,
+                "day_of_week_number": 5,
+                "is_weekend": true,
+                "merchant_latitude": 40.7306,
+                "merchant_longitude": -73.9866
+            }
+        ]
+    },
+    "model": {
+        "status": "not_implemented",
+        "financial_score": null,
+        "recommendations": []
+    }
+}
