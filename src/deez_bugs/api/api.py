@@ -1,12 +1,67 @@
 from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
+from openai import OpenAI, OpenAIError
+from pydantic import BaseModel, Field
 import pandas as pd
 import io
+import os
+from pathlib import Path
 import uvicorn
+from dotenv import load_dotenv
 
 # Shared DB code: reads DATABASE_URL from .env. See src/deez_bugs/db/.
 from deez_bugs.db import UPLOAD_COLUMNS, category_shares, delete_upload, save_upload
 
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+
 router = APIRouter(tags=["Data Upload"])
+
+
+class AssistantProfile(BaseModel):
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    total_spend: float = Field(ge=0)
+    monthly_spend: dict[str, float] = Field(default_factory=dict)
+    category_spend: dict[str, float] = Field(default_factory=dict)
+    recommendations: list[dict[str, object]] = Field(default_factory=list, max_length=3)
+
+
+class AssistantRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=200)
+    profile: AssistantProfile
+
+
+@router.post("/assistant/answer")
+def assistant_answer(request: AssistantRequest):
+    """Generate an assistant answer from pre-aggregated spending information."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured on the backend.")
+
+    client = OpenAI(api_key=api_key)
+    instructions = (
+        "You are Penny, a careful personal finance assistant. Answer using only the supplied "
+        "aggregated spending profile. Do not invent transactions, merchants, income, or facts. "
+        "Use the user's currency. Give a concise, friendly answer in plain text, with specific "
+        "figures where supported. Do not provide regulated financial advice. If the profile does "
+        "not contain enough information, say so clearly."
+    )
+    prompt = f"User question: {request.question}\nAggregated profile:\n{request.profile.model_dump_json()}"
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            temperature=0.3,
+            max_tokens=300,
+            messages=[
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        answer = response.choices[0].message.content
+    except OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=f"Assistant provider request failed: {exc}") from exc
+
+    if not answer:
+        raise HTTPException(status_code=502, detail="Assistant provider returned an empty answer.")
+    return {"answer": answer.strip()}
 
 
 @router.post("/upload-csv/")

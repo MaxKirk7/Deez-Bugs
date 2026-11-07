@@ -153,3 +153,11 @@ export interface Dashboard {
   insights: Insights
   preview: Preview // always PLACEHOLDER
 }
+
+export interface AssistantProfile {
+  currency: Currency
+  total_spend: number
+  monthly_spend: Record<string, number>
+  category_spend: Record<string, number>
+  recommendations: Insights['recommendations']
+}
