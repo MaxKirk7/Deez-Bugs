@@ -1,4 +1,6 @@
-# Segmentation design: "people like you"
+# Segmentation design: "people like you" (original plan)
+
+> **Built.** See [HOW_IT_WORKS.md](HOW_IT_WORKS.md) for what was actually built and the results. This file is the original plan.
 
 Branch: `feat/segmentation` · Code goes in this folder (`src/deez_bugs/ml/`), so the API can import it.
 
