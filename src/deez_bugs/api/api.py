@@ -49,6 +49,16 @@ def user_categories(cc_num: int):
     return {"cc_num": cc_num, "categories": shares}
 
 
+@router.get("/users/{cc_num}/insights")
+def user_insights(cc_num: int):
+    """Group (k-means), 20 most similar users (KNN), recommendations and score for one user."""
+    from deez_bugs.ml.model import get_model     # trains on first call (~10 s), then cached
+    try:
+        return get_model().insights(cc_num)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"No transactions for cc_num {cc_num}")
+
+
 # Create the app AFTER the routes above are defined: include_router copies the
 # routes that exist at that moment.
 app = FastAPI()
