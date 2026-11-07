@@ -4,6 +4,8 @@ React + TypeScript + Vite, styled with Tailwind, charts with Recharts, animation
 
 ## Run it
 
+Needs **Node.js 20.19+ or 22.12+** (`node --version`). Older Node (e.g. the one bundled with Anaconda) fails with *"Cannot find native binding"*. Fix: `brew install node` (or `nvm use`, which reads `.nvmrc`), then `rm -rf node_modules && npm install`.
+
 ```bash
 cd frontend
 npm install      # first time only
@@ -19,7 +21,7 @@ npm run dev      # → http://localhost:5173
 |---|---|---|
 | Hero: "You spend like the … crowd" + score /100 | k-means group, score | **Real model** |
 | Guess your mix (quiz) | your % per category vs people like you | **Real model** |
-| People like you (graph) | your 20 nearest neighbours (KNN); hover loads their real mix | **Real model + database** |
+| *(empty slot next to the quiz)* | reserved for a new feature (`NewFeatureSlot.tsx`) | **PLACEHOLDER** |
 | Spending calendar (heatmap) | daily spend | **Your statement** (read in the browser) |
 | Pick one thing to change | recommendations (collaborative filtering), one goal saved in this browser | **Real model** |
 | Coming next: forecast, subscriptions, savings agent | Alex's made-up numbers | **PLACEHOLDER** (not in the backend yet) |
@@ -48,7 +50,7 @@ cd frontend && npm run dev
 ```
 
 - The first model call trains the model (10–40 s). The app starts that warm-up as soon as the upload page loads.
-- **"Try it with Alex"** uploads Alex's statement to the real database. Each click creates a new `upload` user.
+- **"Try it with Alex"** uploads Alex's statement to the real database **once**; the browser remembers Alex's `cc_num` and re-uses it on later clicks (uploads again only if that user was deleted).
 - Uploads must have the backend's 4 columns: `trans_date_trans_time, merchant, category, amt`, and one of its 14 categories.
 - `VITE_USE_MOCK=true` in `frontend/.env` forces demo mode.
 
@@ -59,10 +61,9 @@ cd frontend && npm run dev
 | Endpoint | Used for |
 |---|---|
 | `POST /upload-csv/` | Upload the statement → `cc_num` |
-| `GET /users/{cc_num}/insights` | Hero, quiz, graph, goals |
-| `GET /users/{cc_num}/categories` | Graph hover card (a neighbour's mix) |
+| `GET /users/{cc_num}/insights` | Hero, quiz, goals |
+| `DELETE /users/{cc_num}` | "Delete my data" for an uploaded user (`deleteUpload()` in `api.ts`) |
 
-**Nice next step:** return each neighbour's top categories inside `/insights`. Hover cards would then load instantly, with no extra call (about 2.5 s each now).
 
 ## Where things are
 

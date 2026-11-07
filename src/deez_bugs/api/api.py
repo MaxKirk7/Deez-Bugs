@@ -4,7 +4,7 @@ import io
 import uvicorn
 
 # Shared DB code: reads DATABASE_URL from .env. See src/deez_bugs/db/.
-from deez_bugs.db import UPLOAD_COLUMNS, category_shares, save_upload
+from deez_bugs.db import UPLOAD_COLUMNS, category_shares, delete_upload, save_upload
 
 router = APIRouter(tags=["Data Upload"])
 
@@ -48,6 +48,14 @@ def user_categories(cc_num: int):
     if not any(s["your_share"] for s in shares):
         raise HTTPException(status_code=404, detail=f"No transactions for cc_num {cc_num}")
     return {"cc_num": cc_num, "categories": shares}
+
+
+@router.delete("/users/{cc_num}")
+def delete_user(cc_num: int):
+    """Delete my data: removes an uploaded user and all their transactions (not reference users)."""
+    if not delete_upload(cc_num):
+        raise HTTPException(status_code=404, detail=f"No uploaded user with cc_num {cc_num}")
+    return {"cc_num": cc_num, "deleted": True}
 
 
 @router.get("/users/{cc_num}/insights")
