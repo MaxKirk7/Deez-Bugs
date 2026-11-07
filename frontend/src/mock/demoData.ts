@@ -126,23 +126,55 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 const total = (xs: Txn[]) => round2(xs.reduce((s, t) => s + t.amount, 0))
 const dayOf = (t: Txn) => Number(t.date.slice(8, 10))
 
-// ── The statement, in the backend's upload format ─────────────────────────
-export function demoRows(): StatementRow[] {
-  return TXNS.filter((t): t is Txn & { category: Category } => t.category !== 'rent' && t.category !== 'bills').map((t, i) => ({
-    // spread the times through the day so it looks like a real statement
-    trans_date_trans_time: `${t.date} ${String(9 + ((i * 7) % 13)).padStart(2, '0')}:${String((i * 17) % 60).padStart(2, '0')}:00`,
-    merchant: t.merchant,
-    category: t.category,
-    amt: t.amount,
-  }))
+// ── Where Alex lives and shops (real Edinburgh locations, for the map) ─────
+export const DEMO_HOME = { lat: 55.9365, long: -3.1945, city: 'Edinburgh' } // student flat in Marchmont
+/** In-person shops only. Online shops, apps, subscriptions and bus fares have no location (like a real statement). */
+const SHOP_LOCATIONS: Record<string, readonly [number, number]> = {
+  'Tesco Express': [55.9389, -3.1911],
+  'Sainsbury’s Local': [55.9445, -3.1838],
+  Aldi: [55.937, -3.229],
+  'Co-op': [55.9372, -3.2063],
+  Greggs: [55.9487, -3.1867],
+  'Pret A Manger': [55.9478, -3.1925],
+  Starbucks: [55.944, -3.1885],
+  'Nando’s': [55.9455, -3.2055],
+  Primark: [55.9535, -3.1945],
+  Boots: [55.9525, -3.1925],
+  'Students’ Union Bar': [55.9454, -3.1892],
+  Cineworld: [55.942, -3.2175],
+  BrewDog: [55.9489, -3.1875],
+  PureGym: [55.9462, -3.2087],
 }
 
-/** CSV text with exactly the columns POST /upload-csv/ needs. */
+// ── The statement, in the backend's upload format ─────────────────────────
+export function demoRows(): StatementRow[] {
+  return TXNS.filter((t): t is Txn & { category: Category } => t.category !== 'rent' && t.category !== 'bills').map((t, i) => {
+    const shop = SHOP_LOCATIONS[t.merchant]
+    const jitter = (k: number) => (((i * k) % 13) - 6) * 0.00008 // tills / doors a few metres apart
+    return {
+      // spread the times through the day so it looks like a real statement
+      trans_date_trans_time: `${t.date} ${String(9 + ((i * 7) % 13)).padStart(2, '0')}:${String((i * 17) % 60).padStart(2, '0')}:00`,
+      merchant: t.merchant,
+      category: t.category,
+      amt: t.amount,
+      merch_lat: shop ? Math.round((shop[0] + jitter(5)) * 1e6) / 1e6 : null,
+      merch_long: shop ? Math.round((shop[1] + jitter(11)) * 1e6) / 1e6 : null,
+      lat: DEMO_HOME.lat,
+      long: DEMO_HOME.long,
+      city: DEMO_HOME.city,
+    }
+  })
+}
+
+/** CSV text in the POST /upload-csv/ format: the 4 required columns + optional location columns. */
 export function toCsv(rows: StatementRow[]): string {
   const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s)
+  const opt = (v: number | string | null | undefined) => (v == null ? '' : String(v))
   return [
-    'trans_date_trans_time,merchant,category,amt',
-    ...rows.map((r) => [r.trans_date_trans_time, esc(r.merchant), r.category, r.amt].join(',')),
+    'trans_date_trans_time,merchant,category,amt,merch_lat,merch_long,lat,long,city',
+    ...rows.map((r) =>
+      [r.trans_date_trans_time, esc(r.merchant), r.category, r.amt, opt(r.merch_lat), opt(r.merch_long), opt(r.lat), opt(r.long), esc(opt(r.city))].join(','),
+    ),
   ].join('\n')
 }
 

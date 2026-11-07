@@ -4,14 +4,14 @@ import { Goals } from './Goals'
 import { Heatmap } from './Heatmap'
 import { Hero } from './Hero'
 import { MixQuiz } from './MixQuiz'
-import { NewFeatureSlot } from './NewFeatureSlot'
 import { Preview } from './Preview'
+import { SpendingMap } from './SpendingMap'
 import { TopBar } from './TopBar'
 
 /**
  * Page, top to bottom:
  *  1. Hero            one sentence + the model's score            (real model)
- *  2. Quiz | Slot     guess your mix · NEW FEATURE (empty for now) (real model)
+ *  2. Quiz | Map      guess your mix · where you spend (map)     (real model · real locations)
  *  3. Heatmap         spending calendar                           (real statement)
  *  4. Goals           pick one thing to change                    (real model)
  *  5. Coming next     forecast, subscriptions, agent              (PLACEHOLDER)
@@ -43,7 +43,7 @@ export function Dashboard({
         <Hero data={data} />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <MixQuiz data={data} />
-          <NewFeatureSlot data={data} />
+          <SpendingMap data={data} />
         </div>
         <Heatmap data={data} />
         <Goals data={data} />

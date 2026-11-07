@@ -5,6 +5,7 @@
  *   POST /upload-csv/                → UploadResult
  *   GET  /users/{cc_num}/insights    → Insights
  *   GET  /users/{cc_num}/categories  → UserCategories
+ *   GET  /users/{cc_num}/places      → Places (the map)
  *
  * Part 2 is the PLACEHOLDER preview (forecast, subscriptions, savings agent).
  * Not built in the backend yet: the UI always shows it with a PLACEHOLDER tag.
@@ -35,6 +36,11 @@ export interface StatementRow {
   merchant: string
   category: Category
   amt: number // money spent (positive)
+  merch_lat?: number | null // optional: where the purchase happened
+  merch_long?: number | null
+  lat?: number | null // optional: where the person lives (same on every row)
+  long?: number | null
+  city?: string | null
 }
 
 export interface UploadResult {
@@ -69,6 +75,28 @@ export interface Insights {
   neighbours: { cc_num: number; similarity: number }[]
   categories: CategoryShare[]
   recommendations: Recommendation[]
+}
+
+/** One circle on the map: nearby purchases grouped together. */
+export interface Area {
+  id: number
+  lat: number
+  long: number
+  visits: number // how many purchases here (circle size)
+  spend: number // money spent here (circle colour)
+  top_category: Category
+  shops: { merchant: string; visits: number; spend: number }[] // top 3
+  km_from_home: number | null // straight line; null if we don't know where they live
+}
+
+/** GET /users/{cc_num}/places */
+export interface Places {
+  cc_num: number
+  home: { lat: number; long: number; city: string | null } | null
+  areas: Area[]
+  area_radius_km: number
+  located_purchases: number
+  online_purchases: number // no location (online shops, apps)
 }
 
 /** GET /users/{cc_num}/categories */
@@ -151,6 +179,7 @@ export interface Dashboard {
   filename: string
   rows: StatementRow[] // the statement itself (read in the browser), for the heatmap
   insights: Insights
+  places: Places // the map: real from the backend in live mode, built from the statement in demo mode
   preview: Preview // always PLACEHOLDER
 }
 

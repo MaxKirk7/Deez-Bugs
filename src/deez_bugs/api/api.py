@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 # Shared DB code: reads DATABASE_URL from .env. See src/deez_bugs/db/.
 from deez_bugs.db import UPLOAD_COLUMNS, category_shares, delete_upload, save_upload
+from deez_bugs.db.places import user_places
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
@@ -89,7 +90,8 @@ def assistant_answer(request: AssistantRequest):
 async def upload_csv(file: UploadFile = File(...)):
     """
     Accepts a bank-statement CSV with the columns trans_date_trans_time, merchant,
-    category, amt (optional: merch_lat, merch_long for where each purchase happened).
+    category, amt (optional: merch_lat, merch_long for where each purchase happened;
+    lat, long, city for where the person lives, which the map uses for routes).
     Checks every row, then stores it as a new user in the shared
     `transactions` table (next to the 908 reference users).
     """
@@ -124,6 +126,15 @@ def user_categories(cc_num: int):
     if not any(s["your_share"] for s in shares):
         raise HTTPException(status_code=404, detail=f"No transactions for cc_num {cc_num}")
     return {"cc_num": cc_num, "categories": shares}
+
+
+@router.get("/users/{cc_num}/places")
+def user_places_map(cc_num: int):
+    """For the map: home, and spending areas (visits, money spent, top shops, km from home)."""
+    try:
+        return user_places(cc_num)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"No user with cc_num {cc_num}")
 
 
 @router.delete("/users/{cc_num}")

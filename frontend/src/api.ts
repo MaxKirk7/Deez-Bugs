@@ -11,7 +11,8 @@
 import { agentScripts } from './mock/agentDemo'
 import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights, toCsv } from './mock/demoData'
 import { CATEGORIES } from './lib/categories'
-import type { AgentResult, AgentStep, AssistantProfile, Category, Dashboard, Insights, StatementRow, UploadResult } from './types'
+import { placesFromRows } from './lib/places'
+import type { AgentResult, AgentStep, AssistantProfile, Category, Dashboard, Insights, Places, StatementRow, UploadResult } from './types'
 
 const FORCE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -62,10 +63,23 @@ export function parseStatement(text: string): StatementRow[] {
   const col = (name: string) => head.indexOf(name)
   const [t, m, c, a] = ['trans_date_trans_time', 'merchant', 'category', 'amt'].map(col)
   if ([t, m, c, a].some((i) => i < 0)) throw new Error('CSV needs the columns trans_date_trans_time, merchant, category, amt')
+  // Optional location columns (for the map): -1 if the CSV doesn't have them.
+  const [mlat, mlong, hlat, hlong, hcity] = ['merch_lat', 'merch_long', 'lat', 'long', 'city'].map(col)
+  const num = (f: string[], i: number) => (i < 0 || f[i] === undefined || f[i].trim() === '' ? null : Number(f[i]))
   return lines
     .slice(1)
     .map(split)
-    .map((f) => ({ trans_date_trans_time: f[t], merchant: f[m], category: f[c] as Category, amt: Number(f[a]) }))
+    .map((f) => ({
+      trans_date_trans_time: f[t],
+      merchant: f[m],
+      category: f[c] as Category,
+      amt: Number(f[a]),
+      merch_lat: num(f, mlat),
+      merch_long: num(f, mlong),
+      lat: num(f, hlat),
+      long: num(f, hlong),
+      city: hcity < 0 ? null : f[hcity] || null,
+    }))
     .filter((r) => r.amt > 0 && CATEGORIES.includes(r.category))
 }
 
@@ -84,7 +98,7 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
 
   if (!live) {
     await wait(400)
-    return { ...base, mode: 'demo', insights: mockInsights(rows) }
+    return { ...base, mode: 'demo', insights: mockInsights(rows), places: placesFromRows(rows) }
   }
 
   // Alex is uploaded once, then re-used: no new copy in the database on every click.
@@ -92,7 +106,7 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
     const saved = readSavedDemoId()
     if (saved !== null) {
       try {
-        return { ...base, mode: 'live', insights: await getJson<Insights>(`/api/users/${saved}/insights`) }
+        return { ...base, mode: 'live', ...(await liveResults(saved)) }
       } catch {
         // deleted or database reset: upload again below
       }
@@ -103,8 +117,16 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
   body.append('file', new File([csv], base.filename, { type: 'text/csv' }))
   const uploaded = await getJson<UploadResult>('/api/upload-csv/', { method: 'POST', body })
   if (demo) saveDemoId(uploaded.cc_num)
-  const insights = await getJson<Insights>(`/api/users/${uploaded.cc_num}/insights`)
-  return { ...base, mode: 'live', insights }
+  return { ...base, mode: 'live', ...(await liveResults(uploaded.cc_num)) }
+}
+
+/** The real model's output + the map data for one user, fetched together. */
+async function liveResults(ccNum: number): Promise<{ insights: Insights; places: Places }> {
+  const [insights, places] = await Promise.all([
+    getJson<Insights>(`/api/users/${ccNum}/insights`),
+    getJson<Places>(`/api/users/${ccNum}/places`),
+  ])
+  return { insights, places }
 }
 
 /** "Delete my data": removes an uploaded user and all their transactions. */
@@ -128,7 +150,7 @@ export async function askAssistant(
   return result
 }
 
-const DEMO_ID_KEY = 'penny.demoCcNum'
+const DEMO_ID_KEY = 'penny.demoCcNum.v2' // v2: Alex with locations
 
 function readSavedDemoId(): number | null {
   try {
