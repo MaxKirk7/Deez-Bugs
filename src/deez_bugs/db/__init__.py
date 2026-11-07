@@ -24,6 +24,8 @@ CATEGORIES = [
 ]
 # Columns an uploaded CSV must have (same names as the dataset).
 UPLOAD_COLUMNS = ["trans_date_trans_time", "merchant", "category", "amt"]
+# Optional: where each purchase happened. Stored if present, left empty if not.
+OPTIONAL_COLUMNS = ["merch_lat", "merch_long"]
 
 
 def connect(autocommit: bool = False) -> psycopg.Connection:
@@ -54,8 +56,8 @@ def refresh_spend(start=None, end=None) -> None:
 
 
 def copy_transactions(conn: psycopg.Connection, df: pd.DataFrame) -> None:
-    """Bulk-insert rows with columns cc_num, ts, merchant, category, amount."""
-    cols = ["cc_num", "ts", "merchant", "category", "amount"]
+    """Bulk-insert rows with columns cc_num, ts, merchant, category, amount, merch_lat, merch_long."""
+    cols = ["cc_num", "ts", "merchant", "category", "amount", "merch_lat", "merch_long"]
     with conn.cursor().copy(f"COPY transactions ({', '.join(cols)}) FROM STDIN WITH (FORMAT csv)") as copy:
         for start in range(0, len(df), 100_000):
             buf = io.StringIO()
@@ -77,7 +79,10 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         "category": df["category"],
         "amount": df["amt"].astype(float).round(2),
     })
-    return out[out.amount > 0].dropna()     # spending only
+    for col in OPTIONAL_COLUMNS:            # location is optional: empty (NULL) if not in the CSV
+        out[col] = pd.to_numeric(df[col], errors="coerce") if col in df.columns else float("nan")
+    out = out.dropna(subset=["ts", "merchant", "category", "amount"])
+    return out[out.amount > 0]              # spending only
 
 
 def save_upload(df: pd.DataFrame) -> dict:
