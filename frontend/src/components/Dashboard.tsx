@@ -21,15 +21,24 @@ export function Dashboard({
   theme,
   onToggleTheme,
   onReset,
+  onOpenAssistant,
 }: {
   data: DashboardData
   theme: Theme
   onToggleTheme: () => void
   onReset: () => void
+  onOpenAssistant: () => void
 }) {
   return (
     <div className="min-h-dvh">
-      <TopBar data={data} theme={theme} onToggleTheme={onToggleTheme} onReset={onReset} />
+      <TopBar
+        data={data}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        onReset={onReset}
+        onOpenAssistant={onOpenAssistant}
+        assistantActive={false}
+      />
       <main className="mx-auto max-w-6xl space-y-5 px-4 pb-20 sm:px-6">
         <Hero data={data} />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">

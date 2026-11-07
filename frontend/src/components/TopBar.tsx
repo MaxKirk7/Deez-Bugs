@@ -1,4 +1,4 @@
-import { Moon, RotateCcw, Sun } from 'lucide-react'
+import { AudioLines, Bot, Moon, RotateCcw, Sun } from 'lucide-react'
 import type { Theme } from '../lib/useTheme'
 import type { Dashboard } from '../types'
 import { Logo } from './UploadScreen'
@@ -8,11 +8,15 @@ export function TopBar({
   theme,
   onToggleTheme,
   onReset,
+  onOpenAssistant,
+  assistantActive,
 }: {
   data: Dashboard
   theme: Theme
   onToggleTheme: () => void
   onReset: () => void
+  onOpenAssistant: () => void
+  assistantActive?: boolean
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-bg/70 backdrop-blur-xl">
@@ -20,6 +24,22 @@ export function TopBar({
         <Logo />
         <div className="ml-auto flex items-center gap-2">
           <ModePill live={data.mode === 'live'} />
+          <button
+            type="button"
+            onClick={onOpenAssistant}
+            aria-label={assistantActive ? 'Return to dashboard' : 'Open voice assistant'}
+            className={`relative grid size-9 place-items-center rounded-full border transition-colors ${
+              assistantActive
+                ? 'border-brand bg-brand text-white shadow-card'
+                : 'glass border-line text-ink-2 hover:text-ink'
+            }`}
+          >
+            <Bot className="size-4" aria-hidden />
+            <AudioLines
+              className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full p-px ${assistantActive ? 'bg-brand' : 'bg-bg'}`}
+              aria-hidden
+            />
+          </button>
           <button
             type="button"
             onClick={onToggleTheme}
