@@ -16,5 +16,5 @@ build/
 .idea/
 .DS_Store
 
-# Secrets: database passwords etc. Never commit.
+# env
 .env
