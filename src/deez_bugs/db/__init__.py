@@ -5,7 +5,7 @@ Usage from any Python code (e.g. FastAPI):
     from deez_bugs.db import connect
 
     with connect() as conn:
-        rows = conn.execute("SELECT * FROM daily_spend LIMIT 5").fetchall()
+        rows = conn.execute("SELECT * FROM monthly_category_spend LIMIT 5").fetchall()
 """
 
 import os
@@ -37,7 +37,7 @@ def connect(autocommit: bool = False) -> psycopg.Connection:
 
 
 def create_schema() -> None:
-    """Create the transactions hypertable and the daily_spend aggregate (safe to re-run)."""
+    """Create the raw kaggle_transactions hypertable and kaggle_daily_spend aggregate (safe to re-run)."""
     # autocommit: continuous aggregates can't be created inside a transaction.
     # Run statements one by one: sending them together would wrap them in one transaction.
     statements = [s.strip() for s in SCHEMA_FILE.read_text().split(";")]

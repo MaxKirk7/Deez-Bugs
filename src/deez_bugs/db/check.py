@@ -12,12 +12,15 @@ def main() -> None:
         print(f"✅ Connected to Tiger Data (Postgres {pg})")
         print(f"   TimescaleDB extension: {ts[0] if ts else 'NOT INSTALLED'}")
 
-        exists = conn.execute("SELECT to_regclass('transactions')").fetchone()[0]
-        if exists:
-            n = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
-            print(f"   transactions table: {n:,} rows")
-        else:
-            print("   transactions table: not created yet (run: uv run tiger-load)")
+        for table, hint in [
+            ("transactions", "run: uv run python db/migrate.py"),
+            ("kaggle_transactions", "run: uv run tiger-load"),
+        ]:
+            if conn.execute("SELECT to_regclass(%s)", (table,)).fetchone()[0]:
+                n = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # fixed names, not user input
+                print(f"   {table} table: {n:,} rows")
+            else:
+                print(f"   {table} table: not created yet ({hint})")
 
 
 if __name__ == "__main__":
