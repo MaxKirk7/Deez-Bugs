@@ -11,7 +11,7 @@
 import { agentScripts } from './mock/agentDemo'
 import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights, toCsv } from './mock/demoData'
 import { CATEGORIES } from './lib/categories'
-import type { AgentResult, AgentStep, Category, Dashboard, Insights, StatementRow, UploadResult } from './types'
+import type { AgentResult, AgentStep, AssistantProfile, Category, Dashboard, Insights, StatementRow, UploadResult } from './types'
 
 const FORCE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -111,6 +111,15 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
 export async function deleteUpload(ccNum: number): Promise<void> {
   await getJson(`/api/users/${ccNum}`, { method: 'DELETE' })
   if (readSavedDemoId() === ccNum) saveDemoId(null)
+}
+
+export async function askAssistant(question: string, profile: AssistantProfile): Promise<string> {
+  const result = await getJson<{ answer: string }>('/api/assistant/answer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, profile }),
+  })
+  return result.answer
 }
 
 const DEMO_ID_KEY = 'penny.demoCcNum'
