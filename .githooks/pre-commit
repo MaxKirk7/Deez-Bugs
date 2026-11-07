@@ -1,0 +1,19 @@
+#!/bin/sh
+# Blocks commits that contain secrets. Turn it on once per clone:
+#   git config core.hooksPath .githooks
+
+# 1. Any .env file (except .env.example)
+files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)\.env(\..+)?$' | grep -v '\.env\.example$')
+if [ -n "$files" ]; then
+    echo "❌ Commit blocked: these files hold secrets and must not be committed:"
+    echo "$files" | sed 's/^/     /'
+    echo "   Unstage with: git restore --staged <file>"
+    exit 1
+fi
+
+# 2. A database connection string with a real password, in any file
+if git diff --cached -U0 | grep -E '^\+' | grep -E 'postgres(ql)?://[^:/ ]+:[^@ ]+@' | grep -vq 'YOUR_PASSWORD'; then
+    echo "❌ Commit blocked: a database connection string with a password is being committed."
+    echo "   Put it in .env (which is gitignored) and read it with os.getenv('DATABASE_URL')."
+    exit 1
+fi
