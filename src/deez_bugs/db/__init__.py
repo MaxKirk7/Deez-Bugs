@@ -1,46 +1,117 @@
-"""Connect to our Tiger Data (TimescaleDB) database.
+"""Everything the app needs from the database.
 
-Usage from any Python code (e.g. FastAPI):
+    from deez_bugs.db import connect, save_upload, category_shares
 
-    from deez_bugs.db import connect
-
-    with connect() as conn:
-        rows = conn.execute("SELECT * FROM monthly_category_spend LIMIT 5").fetchall()
+Tables (see schema.sql): users, transactions (hypertable), daily_category_spend (aggregate).
+Always pass values with %s and a tuple, never with f-strings (SQL injection).
 """
 
+import io
 import os
 from pathlib import Path
 
+import pandas as pd
 import psycopg
 from dotenv import load_dotenv
 
-# Repo root is three folders up from this file: src/deez_bugs/db/__init__.py
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_FILE = Path(__file__).with_name("schema.sql")
 
-
-def database_url() -> str:
-    """Read DATABASE_URL from the environment or from the .env file in the repo root."""
-    load_dotenv(REPO_ROOT / ".env")
-    url = os.getenv("DATABASE_URL")
-    if not url or "YOUR_PASSWORD" in url:
-        raise RuntimeError(
-            "DATABASE_URL is not set. Copy .env.example to .env and paste your "
-            "Tiger Data connection string into it."
-        )
-    return url
+CATEGORIES = [
+    "grocery_pos", "grocery_net", "food_dining", "gas_transport", "shopping_pos", "shopping_net",
+    "home", "kids_pets", "entertainment", "personal_care", "health_fitness", "travel",
+    "misc_pos", "misc_net",
+]
+# Columns an uploaded CSV must have (same names as the dataset).
+UPLOAD_COLUMNS = ["trans_date_trans_time", "merchant", "category", "amt"]
 
 
 def connect(autocommit: bool = False) -> psycopg.Connection:
-    """Open a connection to Tiger Data."""
-    return psycopg.connect(database_url(), autocommit=autocommit)
+    """Open a connection using DATABASE_URL from the repo's .env file."""
+    load_dotenv(REPO_ROOT / ".env")
+    url = os.getenv("DATABASE_URL")
+    if not url or "YOUR_PASSWORD" in url:
+        raise RuntimeError("DATABASE_URL is not set. Copy .env.example to .env and fill it in.")
+    # keepalives: stop long uploads being silently dropped by the network
+    return psycopg.connect(url.strip(), autocommit=autocommit,
+                           keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5)
 
 
 def create_schema() -> None:
-    """Create the raw kaggle_transactions hypertable and kaggle_daily_spend aggregate (safe to re-run)."""
-    # autocommit: continuous aggregates can't be created inside a transaction.
-    # Run statements one by one: sending them together would wrap them in one transaction.
-    statements = [s.strip() for s in SCHEMA_FILE.read_text().split(";")]
+    """Create the tables if they don't exist (safe to re-run)."""
+    # One statement at a time, in autocommit: Tiger's aggregate can't be created in a transaction.
     with connect(autocommit=True) as conn:
-        for sql in filter(None, statements):  # skip the empty bit after the last ";"
-            conn.execute(sql)
+        for statement in SCHEMA_FILE.read_text().split(";"):
+            if any(line.strip() and not line.strip().startswith("--") for line in statement.splitlines()):
+                conn.execute(statement)
+
+
+def refresh_spend(start=None, end=None) -> None:
+    """Update daily_category_spend (call after inserting rows with past dates)."""
+    with connect(autocommit=True) as conn:
+        conn.execute("CALL refresh_continuous_aggregate('daily_category_spend', %s::timestamptz, %s::timestamptz)",
+                     (start, end))
+
+
+def copy_transactions(conn: psycopg.Connection, df: pd.DataFrame) -> None:
+    """Bulk-insert rows with columns cc_num, ts, merchant, category, amount."""
+    cols = ["cc_num", "ts", "merchant", "category", "amount"]
+    with conn.cursor().copy(f"COPY transactions ({', '.join(cols)}) FROM STDIN WITH (FORMAT csv)") as copy:
+        for start in range(0, len(df), 100_000):
+            buf = io.StringIO()
+            df[cols].iloc[start:start + 100_000].to_csv(buf, index=False, header=False)
+            copy.write(buf.getvalue())
+
+
+def clean(df: pd.DataFrame) -> pd.DataFrame:
+    """Dataset-style columns -> our transaction columns. Raises ValueError if the CSV is wrong."""
+    missing = [c for c in UPLOAD_COLUMNS if c not in df.columns]
+    if missing:
+        raise ValueError(f"CSV is missing columns: {missing}. Needed: {UPLOAD_COLUMNS}")
+    unknown = sorted(set(df["category"].dropna()) - set(CATEGORIES))
+    if unknown:
+        raise ValueError(f"Unknown categories {unknown}. Allowed: {CATEGORIES}")
+    out = pd.DataFrame({
+        "ts": pd.to_datetime(df["trans_date_trans_time"]).dt.tz_localize("UTC"),
+        "merchant": df["merchant"].astype(str).str.removeprefix("fraud_"),
+        "category": df["category"],
+        "amount": df["amt"].astype(float).round(2),
+    })
+    return out[out.amount > 0].dropna()     # spending only
+
+
+def save_upload(df: pd.DataFrame) -> dict:
+    """Store an uploaded statement as a new user. Returns {"cc_num": ..., "rows": ...}."""
+    rows = clean(df)
+    if rows.empty:
+        raise ValueError("No spending rows found in the CSV.")
+    with connect() as conn:
+        cc_num = conn.execute("INSERT INTO users (source) VALUES ('upload') RETURNING cc_num").fetchone()[0]
+        copy_transactions(conn, rows.assign(cc_num=cc_num))
+    refresh_spend(rows.ts.min().floor("D"), rows.ts.max().floor("D") + pd.Timedelta(days=1))
+    return {"cc_num": cc_num, "rows": len(rows)}
+
+
+def category_shares(cc_num: int) -> list[dict]:
+    """This user's % of spend per category, next to the average of the reference users."""
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            WITH totals AS (
+                SELECT cc_num, category, SUM(spend) AS spend
+                FROM daily_category_spend GROUP BY cc_num, category),
+            shares AS (
+                SELECT cc_num, category, spend / SUM(spend) OVER (PARTITION BY cc_num) AS share
+                FROM totals)
+            SELECT c.category,
+                   COALESCE((SELECT share FROM shares s WHERE s.cc_num = %s AND s.category = c.category), 0),
+                   COALESCE((SELECT SUM(s.share) FROM shares s JOIN users u USING (cc_num)
+                             WHERE u.source = 'reference' AND s.category = c.category), 0)
+                   / NULLIF((SELECT COUNT(*) FROM users WHERE source = 'reference'), 0)
+            FROM unnest(%s::text[]) AS c(category)
+            ORDER BY 2 DESC
+            """,
+            (cc_num, CATEGORIES),
+        ).fetchall()
+    return [{"category": c, "your_share": round(float(you), 4), "reference_avg_share": round(float(ref or 0), 4)}
+            for c, you, ref in rows]
