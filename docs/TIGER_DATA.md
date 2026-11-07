@@ -32,6 +32,14 @@ Then open `.env` and replace the example line with the real one.
 
 > 🔒 `.env` is git-ignored. **Never commit it and never paste the password in a public chat.**
 
+**Turn on the secret guard** (once per clone). It blocks any commit that contains `.env` or a database password:
+```bash
+git config core.hooksPath .githooks
+```
+A GitHub check (`no-secrets`) also fails any push or PR that includes one.
+
+> If your branch is older than this guide, run `git merge main` first so your `.gitignore` includes `.env`.
+
 **3. Install and test:**
 ```bash
 uv sync
