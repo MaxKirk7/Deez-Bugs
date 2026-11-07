@@ -61,3 +61,5 @@ Hours 22–24	Presentation and demonstration preparation
 
 ## Overview
 ![alt text](image.png)
+## Database (Tiger Data)
+All transactions live in a shared Tiger Data (TimescaleDB) cloud database. **New to the project? Start with [TIGER_DATA.md](TIGER_DATA.md)**: it covers getting connected in 5 minutes, what tables exist, and how to query them from Python.
