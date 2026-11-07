@@ -108,6 +108,12 @@ export function AssistantScreen({
     setActivePrompt(prompt)
   }
 
+  const handleAskAnother = () => {
+    audioRef.current?.pause()
+    audioRef.current = null
+    setShowSuggestions(true)
+  }
+
   return (
     <div className="min-h-dvh">
       <TopBar
@@ -178,7 +184,7 @@ export function AssistantScreen({
             </div>
             <button
               type="button"
-              onClick={() => setShowSuggestions(true)}
+              onClick={handleAskAnother}
               className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-surface-solid transition-transform hover:-translate-y-0.5"
             >
               Ask another question
