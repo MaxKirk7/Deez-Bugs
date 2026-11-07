@@ -7,7 +7,10 @@ authors = [
     { name = "max", email = "max_kirk1@icloud.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "kagglehub>=1.0.3",
+    "pandas>=3.1.1",
+]
 
 [project.scripts]
 deez-bugs = "deez_bugs:main"

@@ -1,0 +1,17 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Datasets: too large for GitHub (>100MB). Download with `uv run python data/transaction.py`
+*.csv
+*.parquet
+*.zip
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
