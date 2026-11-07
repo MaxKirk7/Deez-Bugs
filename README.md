@@ -58,3 +58,6 @@ Hours 10–16	Browser automation agent
 Hours 16–19	Integrate frontend, backend and agent
 Hours 19–22	Testing, bug fixes and polish
 Hours 22–24	Presentation and demonstration preparation
+
+## Overview
+![alt text](image.png)
