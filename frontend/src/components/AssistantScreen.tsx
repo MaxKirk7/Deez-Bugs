@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
 import { motion } from 'motion/react'
-import { askAssistant } from '../api'
+import { askAssistant, speakAssistant } from '../api'
 import type { Theme } from '../lib/useTheme'
 import type { AssistantProfile, Dashboard as DashboardData } from '../types'
 import { TopBar } from './TopBar'
@@ -39,6 +39,7 @@ export function AssistantScreen({
   const [summary, setSummary] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const profile = useMemo<AssistantProfile>(
     () => ({
@@ -78,13 +79,30 @@ export function AssistantScreen({
               .map((point) => point.replace(/^[-*]\s*/, '').trim())
               .filter(Boolean),
           )
+          if (!muted) {
+            return speakAssistant(result.answer).then((audio) => {
+              audioRef.current?.pause()
+              audioRef.current = audio
+            })
+          }
         })
         .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Unable to generate an answer.'))
         .finally(() => setLoading(false))
     }, 100)
 
     return () => window.clearTimeout(timer)
-  }, [activePrompt, profile])
+  }, [activePrompt, muted, profile])
+
+  useEffect(() => {
+    if (muted) audioRef.current?.pause()
+  }, [muted])
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause()
+      if (audioRef.current) URL.revokeObjectURL(audioRef.current.src)
+    }
+  }, [])
 
   const handlePromptClick = (prompt: string) => {
     setActivePrompt(prompt)

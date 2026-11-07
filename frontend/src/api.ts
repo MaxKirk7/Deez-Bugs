@@ -128,6 +128,21 @@ export async function askAssistant(
   return result
 }
 
+export async function speakAssistant(text: string): Promise<HTMLAudioElement> {
+  const response = await fetch('/api/assistant/speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.detail ?? `Speech request failed (${response.status})`)
+  }
+  const audio = new Audio(URL.createObjectURL(await response.blob()))
+  await audio.play()
+  return audio
+}
+
 const DEMO_ID_KEY = 'penny.demoCcNum'
 
 function readSavedDemoId(): number | null {

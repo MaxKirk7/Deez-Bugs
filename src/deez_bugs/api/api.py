@@ -1,10 +1,13 @@
-from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
+from fastapi import APIRouter, FastAPI, File, HTTPException, Response, UploadFile
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field
+import json
 import pandas as pd
 import io
 import os
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 import uvicorn
 from dotenv import load_dotenv
 
@@ -27,6 +30,40 @@ class AssistantProfile(BaseModel):
 class AssistantRequest(BaseModel):
     question: str = Field(min_length=1, max_length=200)
     profile: AssistantProfile
+
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+@router.post("/assistant/speech")
+def assistant_speech(request: SpeechRequest):
+    """Convert the saved assistant answer to audio without exposing the ElevenLabs key."""
+    api_key = os.getenv("ELEVENLABS_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="ELEVENLABS_API_KEY is not configured on the backend.")
+
+    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+    payload = json.dumps({
+        "text": request.text,
+        "model_id": os.getenv("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2"),
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+    }).encode()
+    eleven_request = Request(
+        f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+        data=payload,
+        headers={"xi-api-key": api_key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
+        method="POST",
+    )
+    try:
+        with urlopen(eleven_request, timeout=30) as eleven_response:
+            audio = eleven_response.read()
+    except HTTPError as exc:
+        provider_detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=502, detail=f"ElevenLabs request failed ({exc.code}): {provider_detail}") from exc
+    except URLError as exc:
+        raise HTTPException(status_code=502, detail=f"ElevenLabs connection failed: {exc.reason}") from exc
+    return Response(content=audio, media_type="audio/mpeg")
 
 
 @router.post("/assistant/answer")
