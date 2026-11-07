@@ -42,6 +42,14 @@ h1 em { color: #f97316; font-style: normal; }
 .metric span, .metric small { display: block; color: #84908b; font-size: 12px; }
 .metric strong { display: block; margin: 11px 0 5px; font: 600 25px "Space Grotesk"; letter-spacing: -.8px; }
 .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.map-panel { margin-top: 16px; }
+.spend-map { position: relative; overflow: hidden; border-radius: 12px; }
+.spend-map .leaflet-container { height: 330px; width: 100%; background: #e7eee9; }
+.map-pin-icon { font-size: 19px; line-height: 1; }
+.map-legend { position: absolute; z-index: 500; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 6px; padding: 8px 10px; color: #53625c; background: #ffffffeb; border-radius: 7px; font-size: 10px; }
+.map-legend span { width: 9px; height: 9px; border-radius: 50%; }
+.legend-low { background: #fdba74; }.legend-high { background: #ea580c; margin-left: 5px; }
+.map-empty { display: grid; place-items: center; min-height: 150px; color: #8d9994; background: #f5f7f4; border-radius: 10px; font-size: 13px; }
 .panel { padding: 24px; border: 1px solid #e9ece8; border-radius: 14px; background: white; }
 .panel-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 24px; }
 .panel-icon { display: grid; place-items: center; width: 34px; height: 34px; color: #f97316; background: #fff0e6; border-radius: 10px; }

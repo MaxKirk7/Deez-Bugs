@@ -130,6 +130,26 @@ def process_csv(contents: bytes) -> dict:
         for column in ("merchant_latitude", "merchant_longitude")
         if column in frame
     ]
+    if {"merchant_latitude", "merchant_longitude"} <= set(frame.columns):
+        spend_locations = (
+            frame.dropna(subset=["merchant_latitude", "merchant_longitude"])
+            .groupby(
+                ["merchant_latitude", "merchant_longitude", "merchant"],
+                as_index=False,
+            )
+            .agg(total=("amount", "sum"), transaction_count=("amount", "count"))
+            .sort_values("total", ascending=False)
+        )
+    else:
+        spend_locations = pd.DataFrame(
+            columns=[
+                "merchant_latitude",
+                "merchant_longitude",
+                "merchant",
+                "total",
+                "transaction_count",
+            ]
+        )
     candidate_feature_columns = [
         column
         for column in (
@@ -160,6 +180,7 @@ def process_csv(contents: bytes) -> dict:
             "transaction_locations": _json_records(frame[location_columns].drop_duplicates())
             if location_columns
             else [],
+            "spend_locations": _json_records(spend_locations),
             "unique_location_count": int(frame[location_columns].drop_duplicates().shape[0])
             if location_columns
             else 0,

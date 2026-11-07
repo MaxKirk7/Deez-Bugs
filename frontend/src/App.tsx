@@ -1,9 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
+import type { LatLngExpression } from "leaflet";
 import {
   ArrowUpRight,
   BarChart3,
   CheckCircle2,
-  ChevronRight,
   CircleDollarSign,
   FileUp,
   Lightbulb,
@@ -108,6 +109,20 @@ function EmptyState() {
 }
 
 function Dashboard({ analysis, modelUser, categories, maxMonth }: { analysis: Analysis; modelUser?: NonNullable<Analysis["model"]["users"]>[number]; categories: CategorySummary[]; maxMonth: number }) {
+  const spendLocations = analysis.location?.spend_locations ?? [];
+  const mapCenter: LatLngExpression = spendLocations.length
+    ? [
+        spendLocations.reduce((sum, point) => sum + point.merchant_latitude, 0) /
+          spendLocations.length,
+        spendLocations.reduce((sum, point) => sum + point.merchant_longitude, 0) /
+          spendLocations.length,
+      ]
+    : [39.8283, -98.5795];
+  const maxLocationSpend = Math.max(
+    ...spendLocations.map((location) => location.total),
+    1,
+  );
+
   return (
     <section className="dashboard">
       <div className="section-heading"><div><p className="eyebrow">YOUR SNAPSHOT</p><h2>A clearer view of your habits.</h2></div><span className="period-pill">{analysis.transaction_count} transactions analysed</span></div>
@@ -131,9 +146,47 @@ function Dashboard({ analysis, modelUser, categories, maxMonth }: { analysis: An
         </section>
       </div>
       <div className="content-grid lower">
-        <section className="panel segment-panel">
-          <PanelHeading icon={<Users size={18} />} title="Your spending circle" subtitle="Customers with similar habits" />
-          {modelUser ? <><div className="segment-callout"><div className="segment-number">{modelUser.segment + 1}</div><div><strong>Segment {modelUser.segment + 1}</strong><p>You share patterns with {modelUser.segment_size} customers in the reference set.</p></div></div><div className="similar-list">{modelUser.similar_users.slice(0, 4).map((user) => <div className="similar-row" key={String(user.user_id)}><span className="mini-avatar">{String(user.user_id).slice(-2)}</span><span>Customer {String(user.user_id).slice(-4)}</span><strong>{Math.round(user.similarity * 100)}% match</strong><ChevronRight size={15} /></div>)}</div></> : <p className="muted">Train the reference model to see similar customers.</p>}
+        <section className="panel map-panel">
+          <PanelHeading
+            icon={<MapPinIcon />}
+            title="Where your money moves"
+            subtitle="Merchant locations weighted by spend"
+          />
+          {spendLocations.length ? (
+            <div className="spend-map">
+              <MapContainer center={mapCenter} zoom={spendLocations.length === 1 ? 12 : 4} scrollWheelZoom>
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {spendLocations.map((location) => {
+                  const intensity = location.total / maxLocationSpend;
+                  return (
+                    <CircleMarker
+                      key={`${location.merchant}-${location.merchant_latitude}-${location.merchant_longitude}`}
+                      center={[location.merchant_latitude, location.merchant_longitude]}
+                      radius={9 + intensity * 17}
+                      pathOptions={{
+                        color: "#f97316",
+                        fillColor: "#f97316",
+                        fillOpacity: 0.22 + intensity * 0.55,
+                        weight: 2,
+                      }}
+                    >
+                      <Popup>
+                        <strong>{location.merchant.replace("fraud_", "")}</strong>
+                        <br />
+                        {money(location.total)} across {location.transaction_count} transaction{location.transaction_count === 1 ? "" : "s"}
+                      </Popup>
+                    </CircleMarker>
+                  );
+                })}
+              </MapContainer>
+              <div className="map-legend"><span className="legend-low" /> Lower spend <span className="legend-high" /> Higher spend</div>
+            </div>
+          ) : (
+            <div className="map-empty">Add merchant latitude and longitude columns to see your spending map.</div>
+          )}
         </section>
         <section className="panel recommendation-panel">
           <PanelHeading icon={<Lightbulb size={18} />} title="Worth discovering" subtitle="Used by people like you" />
@@ -143,6 +196,10 @@ function Dashboard({ analysis, modelUser, categories, maxMonth }: { analysis: An
       <div className="insight-note"><CheckCircle2 size={18} /><span><strong>Next step:</strong> Your dashboard is ready. Recommendations are based on spending patterns, not financial judgement.</span></div>
     </section>
   );
+}
+
+function MapPinIcon() {
+  return <span className="map-pin-icon">⌖</span>;
 }
 
 function Metric({ label, value, detail, accent }: { label: string; value: string; detail: string; accent: string }) {

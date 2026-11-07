@@ -26,6 +26,16 @@ export type Analysis = {
   by_category: CategorySummary[];
   by_month: Array<{ month: string; total: number; transaction_count: number }>;
   by_hour: Array<{ hour: number; total: number; transaction_count: number }>;
+  location?: {
+    spend_locations: Array<{
+      merchant_latitude: number;
+      merchant_longitude: number;
+      merchant: string;
+      total: number;
+      transaction_count: number;
+    }>;
+    unique_location_count: number;
+  };
   model: {
     status: string;
     users?: ModelUser[];
