@@ -22,6 +22,7 @@ const LINE = '#22357e'
 const ROUTE = '#e8590c'
 const WALK_KMH = 5
 const SEARCH_RADIUS_KM = 2.5
+const INITIAL_PLACES = 5
 
 type RouteState =
   | { status: 'loading' }
@@ -46,8 +47,8 @@ const distanceBetween = (a: SavedPin, b: SavedPin) => {
   return 2 * 6371 * Math.asin(Math.sqrt(haversine))
 }
 
-async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal): Promise<NearbyPlace[]> {
-  const query = `[out:json][timeout:20];(nwr["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags;`
+async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal, limit: number): Promise<NearbyPlace[]> {
+  const query = `[out:json][timeout:20];(nwr["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags ${limit};`
   const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal })
   if (!response.ok) throw new Error('Nearby place search is unavailable right now.')
   const body: { elements?: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: { name?: string; amenity?: string; shop?: string } }[] } =
@@ -69,7 +70,7 @@ async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal): Promise<Nea
     })
     .filter((place): place is NearbyPlace => place !== null)
     .sort((a, b) => a.distance - b.distance)
-    .slice(0, 5)
+    .slice(0, 20)
 }
 
 function readPin(): SavedPin | null {
@@ -109,6 +110,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
   const [nearby, setNearby] = useState<NearbyPlace[]>([])
   const [nearbyStatus, setNearbyStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [nearbyVisible, setNearbyVisible] = useState(false)
+  const [nearbyExpanded, setNearbyExpanded] = useState(false)
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -141,6 +143,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
       setNearby([])
       setNearbyStatus('idle')
       setNearbyVisible(false)
+      setNearbyExpanded(false)
     })
     layer.current = L.layerGroup().addTo(m)
     map.current = m
@@ -163,12 +166,13 @@ export function SpendingMap({ data }: { data: Dashboard }) {
     if (!pin) return
     const controller = new AbortController()
     setNearbyStatus('loading')
-    findNearbyPlaces(pin, controller.signal)
-      .then((places) => {
-        if (!controller.signal.aborted) {
-          setNearby(places)
-          setNearbyStatus('ready')
-        }
+    findNearbyPlaces(pin, controller.signal, INITIAL_PLACES)
+      .then(async (firstPlaces) => {
+        if (controller.signal.aborted) return
+        setNearby(firstPlaces)
+        setNearbyStatus('ready')
+        const allPlaces = await findNearbyPlaces(pin, controller.signal, 20)
+        if (!controller.signal.aborted) setNearby(allPlaces)
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted && !(error instanceof DOMException && error.name === 'AbortError')) {
@@ -290,6 +294,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
                 setNearby([])
                 setNearbyStatus('idle')
                 setNearbyVisible(false)
+                setNearbyExpanded(false)
               }}
               className="shrink-0 text-xs font-medium text-critical hover:underline"
             >
@@ -315,7 +320,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
             </div>
             {nearbyVisible && (
               <div className="space-y-2">
-                {nearby.map((place) => (
+                {nearby.slice(0, nearbyExpanded ? nearby.length : INITIAL_PLACES).map((place) => (
                   <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-ink">{place.name}</p>
@@ -324,6 +329,15 @@ export function SpendingMap({ data }: { data: Dashboard }) {
                     <span className="shrink-0 text-xs tabular text-muted">{place.distance.toFixed(2)} km</span>
                   </div>
                 ))}
+                {!nearbyExpanded && nearby.length > INITIAL_PLACES && (
+                  <button
+                    type="button"
+                    onClick={() => setNearbyExpanded(true)}
+                    className="mt-1 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted hover:text-ink"
+                  >
+                    Show more
+                  </button>
+                )}
               </div>
             )}
             {nearbyStatus === 'error' && <p className="text-sm text-critical">Could not load nearby places.</p>}
