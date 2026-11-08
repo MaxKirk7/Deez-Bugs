@@ -1,37 +1,39 @@
 @import "tailwindcss";
 
 /* ───────────────────────── Design tokens ─────────────────────────
-   Every colour in the app comes from here. Light is the default;
-   dark follows the OS unless the user picks a theme with the toggle. */
+   Every colour in the app comes from here. Dark ("Glacier Lake") is the default;
+   the toggle switches to "Editorial" (the :root / data-theme="light" values). */
 :root {
-  color-scheme: light;
-  --bg: #eef0f4;
-  --surface: rgba(255, 255, 255, 0.62);
-  --surface-solid: #fbfbfd;
-  --surface-2: rgba(15, 23, 42, 0.05);
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #7a7873;
-  --grid: #e1e0d9;
-  --axis: #c3c2b7;
-  --line: rgba(15, 23, 42, 0.09);
-  --violet: #7c5cff;
-  --brand: #2a78d6;
-  --brand-strong: #1c5cab;
-  --brand-soft: rgba(42, 120, 214, 0.1);
-  --on-brand: #ffffff;
-  --compare: #b4b2aa;
-  --good: #0ca30c;
-  --good-text: #006300;
-  --good-soft: rgba(12, 163, 12, 0.1);
-  --warning: #fab219;
-  --warning-text: #8a5a00;
-  --warning-soft: rgba(250, 178, 25, 0.16);
-  --critical: #d03b3b;
-  --critical-text: #b42f2f;
-  --critical-soft: rgba(208, 59, 59, 0.1);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -16px rgba(0, 0, 0, 0.12);
-  --glow: rgba(42, 120, 214, 0.18);
+  /* "Editorial": the theme the sun/moon toggle switches to. Charcoal paper, warm off-white ink,
+     serif headlines, mono labels, a single teal accent, salmon for things that need you. */
+  color-scheme: dark;
+  --bg: #111315;
+  --surface: transparent;
+  --surface-solid: #16191b;
+  --surface-2: rgba(236, 235, 230, 0.045);
+  --ink: #ecebe6;
+  --ink-2: #b8b6af;
+  --muted: #84837d;
+  --grid: #24272a;
+  --axis: #34383b;
+  --line: rgba(236, 235, 230, 0.1);
+  --violet: #79c2b6;
+  --brand: #79c2b6;
+  --brand-strong: #a6dad1;
+  --brand-soft: rgba(121, 194, 182, 0.1);
+  --on-brand: #101314;
+  --compare: #5d5f5c;
+  --good: #79c4a3;
+  --good-text: #8fd3b2;
+  --good-soft: rgba(121, 196, 163, 0.1);
+  --warning: #e0907d;
+  --warning-text: #e8a594;
+  --warning-soft: rgba(224, 144, 125, 0.1);
+  --critical: #e0907d;
+  --critical-text: #eba08f;
+  --critical-soft: rgba(224, 144, 125, 0.1);
+  --shadow: none;
+  --glow: transparent;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -245,7 +247,7 @@ html {
   opacity: 0.85;
 }
 :root[data-theme="dark"] .spend-map .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.8) saturate(0.5) contrast(0.88) sepia(0.25) hue-rotate(130deg);
+  filter: invert(1) hue-rotate(180deg) brightness(1.4) saturate(0.55) contrast(0.78) sepia(0.25) hue-rotate(130deg);
 }
 .spend-map .map-area {
   cursor: pointer;
@@ -308,4 +310,83 @@ html {
 }
 :root[data-theme="dark"] body::before {
   background: radial-gradient(60% 40% at 50% 0%, rgba(160, 220, 225, 0.12), transparent 70%);
+}
+
+/* ───────────────────────── Editorial theme: design (toggle → data-theme="light") ─────────────────────────
+   Same components, different look: ruled sections instead of glass cards, serif headlines,
+   mono labels, square buttons. Colours only come from the tokens above. */
+:root[data-theme="light"] body {
+  background: var(--bg);
+}
+:root[data-theme="light"] body::before {
+  display: none;
+}
+:root[data-theme="light"] h1,
+:root[data-theme="light"] h2,
+:root[data-theme="light"] h3 {
+  font-family: "Lora", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+/* Big headline text and big numbers are serif too (the reference's "569 / 999", "53%") */
+:root[data-theme="light"] :is(.text-xl, .text-2xl, .text-3xl, .text-4xl, .text-5xl):is(.font-semibold, .font-bold, .font-medium) {
+  font-family: "Lora", Georgia, serif;
+  font-weight: 400;
+}
+:root[data-theme="light"] h1 .bg-clip-text {
+  font-style: italic;
+}
+/* Cards become sections separated by a thin rule */
+:root[data-theme="light"] section.glass,
+:root[data-theme="light"] button.glass.text-left {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-width: 1px 0 0 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root[data-theme="light"] header.sticky {
+  background: var(--bg);
+  backdrop-filter: none;
+}
+/* Small caps labels in mono */
+:root[data-theme="light"] .uppercase {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+}
+/* Pills and round controls: same shape, no glass */
+:root[data-theme="light"] .glass {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* Square, quiet buttons (round icon buttons like the assistant bubble stay round) */
+:root[data-theme="light"] button:not(.size-9):not(.size-14) {
+  border-radius: 2px !important;
+}
+/* Nav: plain text links, the current page underlined */
+:root[data-theme="light"] header nav button {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-theme="light"] header nav button[aria-current="page"] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 10px;
+}
+:root[data-theme="light"] .shadow-card,
+:root[data-theme="light"] .shadow-md {
+  box-shadow: none !important;
+}
+/* Map: greyscale dark tiles under the teal circles */
+:root[data-theme="light"] .spend-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) grayscale(1) brightness(1.2) contrast(0.8);
+}
+:root[data-theme="light"] .spend-map,
+:root[data-theme="light"] .spend-map .leaflet-container {
+  border-radius: 0;
 }
