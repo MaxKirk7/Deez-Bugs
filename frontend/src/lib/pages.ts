@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 export const PAGES = [
   { id: 'home', label: 'Home' },
   { id: 'unusual', label: 'Fraud check' },
-  { id: 'compare', label: 'Compare' },
+  { id: 'compare', label: 'People like you' },
   { id: 'recommendations', label: 'Recommendations' },
   { id: 'forecast', label: 'Forecast' },
 ] as const

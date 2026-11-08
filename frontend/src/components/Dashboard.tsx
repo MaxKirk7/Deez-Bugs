@@ -10,10 +10,10 @@ import { AssistantScreen } from './AssistantScreen'
 import { ForecastChart } from './ForecastChart'
 import { Goals } from './Goals'
 import { Heatmap } from './Heatmap'
-import { Hero } from './Hero'
-import { MixQuiz } from './MixQuiz'
 import { Overview } from './Overview'
+import { PeopleLikeYou } from './PeopleLikeYou'
 import { Preview } from './Preview'
+import { Priority } from './Priority'
 import { AssistantFloatingButton, TopBar } from './TopBar'
 import { UnusualTransactions } from './UnusualTransactions'
 import { Card } from './ui'
@@ -22,7 +22,7 @@ import { Card } from './ui'
  * The dashboard, split into pages (top nav; each page has its own #/address):
  *   Home             biggest win + what-if, score, map, explore tiles
  *   Fraud check      "Was this you?" unusual purchases                     (real model)
- *   Compare          score + group, guess your mix vs people like you      (real model)
+ *   People like you  your spending mix vs your 20 nearest neighbours       (real model)
  *   Recommendations  pick one thing to change + coming next (agent, subs)  (real model · placeholder)
  *   Forecast         where this month is heading + the spending calendar  (real statement)
  */
@@ -67,15 +67,11 @@ export function Dashboard({
         </p>
       </>
     ),
-    compare: (
-      <>
-        <Hero data={data} />
-        <MixQuiz data={data} />
-      </>
-    ),
+    compare: <PeopleLikeYou data={data} />,
     recommendations: (
       <>
         <PageHeader title="Recommendations" subtitle="Pick one thing to change." />
+        <Priority data={data} />
         <Goals data={data} />
         <div className="pt-6">
           <Preview data={data.preview} />

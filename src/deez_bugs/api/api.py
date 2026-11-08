@@ -229,6 +229,17 @@ def delete_user(cc_num: int):
     return {"cc_num": cc_num, "deleted": True}
 
 
+@router.get("/users/{cc_num}/peers/{category}")
+def user_peer_habits(cc_num: int, category: str):
+    """You vs your 20 nearest neighbours (KNN) in one category: visits a month, per visit, a month,
+    and the shops most popular with them (src/deez_bugs/ml/peers.py)."""
+    from deez_bugs.ml.peers import peer_habits
+    try:
+        return peer_habits(cc_num, category)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"No user {cc_num} or category {category!r}")
+
+
 @router.get("/users/{cc_num}/insights")
 def user_insights(cc_num: int):
     """Group (k-means), 20 most similar users (KNN), recommendations and score for one user."""

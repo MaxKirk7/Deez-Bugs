@@ -229,3 +229,16 @@ export async function researchSavings(opportunityId: string, onStep: (step: Agen
   await wait(500)
   return script.result
 }
+
+/** You vs your 20 nearest neighbours (KNN) in one category: GET /users/{cc_num}/peers/{category}. */
+export interface PeerHabits {
+  label: string
+  peers: number
+  window_days: number
+  you: { visits_a_month: number; per_visit: number; a_month: number }
+  peers_median: { visits_a_month: number; per_visit: number; a_month: number }
+  peer_shops: { merchant: string; peers: number }[]
+}
+export async function peerHabits(ccNum: number, category: string): Promise<PeerHabits> {
+  return getJson<PeerHabits>(`/api/users/${ccNum}/peers/${category}`)
+}
