@@ -114,7 +114,7 @@ export function UnusualTransactions({
           </div>
         }
       />
-      <ul className="px-3 pt-3 sm:px-4">
+      <ul className="space-y-3 px-5 pt-4 sm:px-6">
         <AnimatePresence initial={false}>
           {rows.map((row) => (
             <motion.li
@@ -122,51 +122,9 @@ export function UnusualTransactions({
               layout
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.25 }}
-              className="overflow-hidden rounded-2xl px-2 py-3 transition-colors hover:bg-surface-2"
+              className="overflow-hidden"
             >
-              <div className="flex flex-wrap items-start gap-x-4 gap-y-2.5">
-                <div className="min-w-0 flex-1 basis-64">
-                  <p className="text-sm font-medium text-ink">
-                    {title(row)}
-                    {row.kind === 'single' && (
-                      <span className="font-normal text-muted"> · {CATEGORY[row.purchases[0].category].label}</span>
-                    )}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {row.reasons.map((r) => (
-                      <Badge key={r.kind} tone={STRONG.has(r.kind) ? 'warning' : 'neutral'} icon={REASON_ICON[r.kind] ?? Sparkles}>
-                        {r.text}
-                      </Badge>
-                    ))}
-                  </div>
-                  {row.kind === 'burst' && (
-                    <p className="mt-1.5 text-xs text-muted">
-                      {row.purchases.map((p) => `${p.merchant} ${money(p.amount, currency)}`).join(' · ')}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <p className="tabular text-sm font-semibold text-ink">{money(row.total, currency, 2)}</p>
-                  <button
-                    type="button"
-                    disabled={busy !== null}
-                    onClick={() => answer(row, true)}
-                    aria-label={`It was me: ${title(row)}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:text-ink disabled:opacity-50"
-                  >
-                    <Check className="size-3.5" aria-hidden /> It was me
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy !== null}
-                    onClick={() => answer(row, false)}
-                    aria-label={`Not me: ${title(row)}`}
-                    className="inline-flex items-center gap-1 rounded-full bg-critical-soft px-3 py-1.5 text-xs font-medium text-critical-text transition-opacity hover:opacity-80 disabled:opacity-50"
-                  >
-                    <X className="size-3.5" aria-hidden /> {busy === row ? 'Saving…' : 'Not me'}
-                  </button>
-                </div>
-              </div>
+              <FlaggedItem row={row} currency={currency} busy={busy} onAnswer={answer} />
             </motion.li>
           ))}
         </AnimatePresence>
@@ -187,5 +145,112 @@ export function UnusualTransactions({
         )}
       </div>
     </Card>
+  )
+}
+
+/** "Sat 17 Oct · 22:39" */
+const when = (iso: string) => [dayDate(iso), clock(iso)].filter(Boolean).join(' · ')
+
+/**
+ * One thing to check, laid out like a bank statement: shop + amount first (big), when it
+ * happened underneath. "Why we flagged this" opens the model's reasons.
+ */
+function FlaggedItem({
+  row,
+  currency,
+  busy,
+  onAnswer,
+}: {
+  row: UnusualRow
+  currency: Dashboard['currency']
+  busy: UnusualRow | null
+  onAnswer: (row: UnusualRow, wasMe: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const burst = row.kind === 'burst'
+  return (
+    <div className="rounded-2xl border border-line bg-surface-2/60 p-4 sm:p-5">
+      {burst && (
+        <p className="mb-2 text-xs font-semibold tracking-widest text-warning-text uppercase">
+          {row.purchases.length} purchases close together
+        </p>
+      )}
+      <ul className="divide-y divide-line">
+        {row.purchases.map((p, i) => {
+          const Icon = CATEGORY[p.category].icon
+          return (
+            <li key={i} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-2 text-ink-2">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-lg font-semibold text-ink">{p.merchant}</p>
+                <p className="text-sm text-muted">
+                  {when(p.ts)} · {CATEGORY[p.category].label}
+                </p>
+              </div>
+              <p className="tabular text-lg font-semibold text-ink">{money(p.amount, currency, 2)}</p>
+            </li>
+          )
+        })}
+      </ul>
+      {burst && (
+        <p className="mt-2 flex justify-between border-t border-line pt-2 text-sm text-ink-2">
+          <span>Total</span>
+          <span className="tabular font-semibold text-ink">{money(row.total, currency, 2)}</span>
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="inline-flex items-center gap-1 text-sm font-medium text-brand"
+        >
+          Why we flagged this
+          <ChevronDown className={`size-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => onAnswer(row, true)}
+            aria-label={`It was me: ${title(row)}`}
+            className="inline-flex items-center gap-1 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink/60 disabled:opacity-50"
+          >
+            <Check className="size-4" aria-hidden /> It was me
+          </button>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => onAnswer(row, false)}
+            aria-label={`Not me: ${title(row)}`}
+            className="inline-flex items-center gap-1 rounded-full bg-critical-soft px-4 py-2 text-sm font-semibold text-critical-text transition-opacity hover:opacity-80 disabled:opacity-50"
+          >
+            <X className="size-4" aria-hidden /> {busy === row ? 'Saving…' : 'Not me'}
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
+              {row.reasons.map((r) => (
+                <Badge key={r.kind} tone={STRONG.has(r.kind) ? 'warning' : 'neutral'} icon={REASON_ICON[r.kind] ?? Sparkles}>
+                  {r.text}
+                </Badge>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
