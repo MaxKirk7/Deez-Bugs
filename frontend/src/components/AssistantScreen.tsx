@@ -27,11 +27,13 @@ export function AssistantScreen({
   const [activePrompt, setActivePrompt] = useState<string | null>(null)
   const [askedPrompts, setAskedPrompts] = useState<Set<string>>(new Set())
   const [showSuggestions, setShowSuggestions] = useState(true)
-  const [answer, setAnswer] = useState<string | null>(null)
   const [summary, setSummary] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioRef = useRef<AudioBufferSourceNode | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const disposedRef = useRef(false)
+  const speechControllerRef = useRef<AbortController | null>(null)
 
   const profile = useMemo<AssistantProfile>(
     () => ({
@@ -59,12 +61,13 @@ export function AssistantScreen({
       setActivePrompt(null)
       setShowSuggestions(false)
       setLoading(true)
-      setAnswer(null)
       setSummary([])
       setError(null)
+      speechControllerRef.current?.abort()
+      const speechController = new AbortController()
+      speechControllerRef.current = speechController
       askAssistant(activePrompt, profile)
         .then((result) => {
-          setAnswer(result.answer)
           setSummary(
             (result.summary || result.answer)
               .split('\n')
@@ -72,8 +75,14 @@ export function AssistantScreen({
               .filter(Boolean),
           )
           if (!muted) {
-            return speakAssistant(result.answer).then((audio) => {
-              audioRef.current?.pause()
+            const audioContext = audioContextRef.current
+            if (!audioContext) return
+            return speakAssistant(result.answer, speechController.signal, audioContext).then((audio) => {
+              if (disposedRef.current || muted) {
+                audio.stop()
+                return
+              }
+              audioRef.current?.stop()
               audioRef.current = audio
             })
           }
@@ -86,24 +95,41 @@ export function AssistantScreen({
   }, [activePrompt, muted, profile])
 
   useEffect(() => {
-    if (muted) audioRef.current?.pause()
+    if (muted) {
+      audioRef.current?.stop()
+      audioRef.current = null
+    }
   }, [muted])
 
   useEffect(() => {
+    disposedRef.current = false
+
     return () => {
-      audioRef.current?.pause()
-      if (audioRef.current) URL.revokeObjectURL(audioRef.current.src)
+      disposedRef.current = true
+      speechControllerRef.current?.abort()
+      audioRef.current?.stop()
+      audioRef.current = null
+      void audioContextRef.current?.close()
     }
   }, [])
 
   const handlePromptClick = (prompt: string) => {
+    if (!audioContextRef.current) audioContextRef.current = new AudioContext()
+    void audioContextRef.current.resume()
     setActivePrompt(prompt)
   }
 
   const handleAskAnother = () => {
-    audioRef.current?.pause()
+    audioRef.current?.stop()
     audioRef.current = null
     setShowSuggestions(true)
+  }
+
+  const handleClose = () => {
+    speechControllerRef.current?.abort()
+    audioRef.current?.stop()
+    audioRef.current = null
+    onClose()
   }
 
   return (
@@ -111,12 +137,13 @@ export function AssistantScreen({
       <button
         type="button"
         aria-label="Close assistant"
-        onClick={onClose}
+        onClick={handleClose}
         className="fixed inset-0 z-30 bg-black/10"
       />
       <aside
         aria-label="AI assistant"
         className="fixed inset-y-0 right-0 z-40 w-full min-w-[22rem] max-w-[33.333vw] overflow-y-auto border-l border-line bg-bg p-6 shadow-2xl sm:p-8"
+        onClick={(event) => event.stopPropagation()}
       >
         <main className="flex min-h-full flex-col items-center pt-12 text-center">
         <img

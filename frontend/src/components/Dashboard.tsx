@@ -46,7 +46,10 @@ export function Dashboard({
         onToggleTheme={onToggleTheme}
         onReset={onReset}
       />
-      <main className="mx-auto max-w-6xl space-y-5 px-4 pb-20 sm:px-6">
+      <main
+        className="mx-auto max-w-6xl space-y-5 px-4 pb-20 sm:px-6"
+        onClick={assistantOpen ? onCloseAssistant : undefined}
+      >
         <Hero data={data} />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <MixQuiz data={data} />
