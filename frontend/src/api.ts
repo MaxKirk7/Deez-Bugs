@@ -11,6 +11,7 @@
 import { agentScripts } from './mock/agentDemo'
 import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights, toCsv } from './mock/demoData'
 import { CATEGORIES } from './lib/categories'
+import { placesFromRows } from './lib/places'
 import type { AgentResult, AgentStep, AssistantProfile, Category, Dashboard, Insights, Places, StatementRow, UploadResult } from './types'
 
 const FORCE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
