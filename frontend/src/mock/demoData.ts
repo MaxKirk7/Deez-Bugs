@@ -340,7 +340,7 @@ export function mockInsights(rows: StatementRow[]): Insights {
   return {
     cc_num: 0,
     segment: { id: 2, name: 'More than most on Eating out & Entertainment', size: 181 },
-    score: Math.round(100 * (1 - CATEGORIES.reduce((s, c) => s + Math.max(0, gap(c)), 0))),
+    score: Math.round(999 * (1 - CATEGORIES.reduce((s, c) => s + Math.max(0, gap(c)), 0))),
     monthly_spend: round2(monthly),
     neighbours,
     categories: [...CATEGORIES]

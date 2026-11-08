@@ -91,7 +91,7 @@ def main() -> None:
     scores = {cc: model.compare(model.shares.loc[cc], model.monthly[cc], exclude=cc)["score"] for cc in model.shares.index}
     s = pd.Series(scores)
     print(f"\n   Scores across the 908 users: median {s.median():.0f}, lowest {s.min()}, highest {s.max()}; "
-          f"{(s < 90).sum()} users score below 90")
+          f"{(s < 900).sum()} users score below 900")
     example = int(s.idxmin())          # the user who differs most from people like them
     result = model.insights(example)
     print(f"\n5. Example: user {example} (the one most different from their neighbours)")

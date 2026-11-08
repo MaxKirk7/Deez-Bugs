@@ -1,13 +1,10 @@
 import { useState } from 'react'
 import type { Preview as PreviewData } from '../types'
-import type { Theme } from '../lib/useTheme'
-import { ForecastChart } from './ForecastChart'
 import { SavingsAgent } from './SavingsAgent'
 import { Subscriptions } from './Subscriptions'
 import { SourceTag } from './ui'
 
 const TABS = [
-  { id: 'forecast', label: 'Month forecast' },
   { id: 'subs', label: 'Subscriptions' },
   { id: 'agent', label: 'Savings agent' },
 ] as const
@@ -16,8 +13,8 @@ const TABS = [
  * Features that aren't in the backend yet. They always use Alex's made-up demo
  * numbers, and the whole section is tagged PLACEHOLDER so nobody mistakes them for real.
  */
-export function Preview({ data, theme }: { data: PreviewData; theme: Theme }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('forecast')
+export function Preview({ data }: { data: PreviewData }) {
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('subs')
   return (
     <section aria-labelledby="preview-title" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -45,7 +42,6 @@ export function Preview({ data, theme }: { data: PreviewData; theme: Theme }) {
         ))}
       </div>
       <div role="tabpanel" className="opacity-90">
-        {tab === 'forecast' && <ForecastChart forecast={data.forecast} month={data.month} theme={theme} />}
         {tab === 'subs' && <Subscriptions subscriptions={data.subscriptions} />}
         {tab === 'agent' && <SavingsAgent savings={data.savings} />}
       </div>

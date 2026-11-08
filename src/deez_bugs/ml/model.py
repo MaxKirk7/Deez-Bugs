@@ -35,6 +35,7 @@ N_SEGMENTS = 6
 N_NEIGHBOURS = 20
 MIN_GAP = 0.03          # only recommend if you're 3+ percentage points above your neighbours
 SEED = 42
+SCORE_MAX = 999         # same scale as a UK credit score (Experian)
 
 
 class SpendingModel:
@@ -94,8 +95,9 @@ class SpendingModel:
                          f"Matching them would free up about {monthly * gap[c]:,.0f} a month.")}
             for c in gap[gap > MIN_GAP].sort_values(ascending=False).index[:3]
         ]
-        # Score: % of your spending mix that matches people like you (100 = identical).
-        score = round(100 * (1 - float(gap.clip(lower=0).sum())))
+        # Score out of 999, like a credit score: how much of your spending mix matches people like you
+        # (999 = identical).
+        score = round(SCORE_MAX * (1 - float(gap.clip(lower=0).sum())))
         return {
             "segment": {"id": seg, "name": self.names[seg], "size": int((self.segment_of == seg).sum())},
             "score": score,

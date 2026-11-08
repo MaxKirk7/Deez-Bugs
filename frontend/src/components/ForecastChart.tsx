@@ -12,13 +12,24 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { gbp } from '../lib/format'
+import { money } from '../lib/format'
 import { readTokens, type Theme } from '../lib/useTheme'
-import type { ForecastPoint, MonthSummary } from '../types'
+import type { Currency, ForecastPoint, MonthSummary } from '../types'
 import { Card, CardHeader } from './ui'
 
 /** Cumulative spend this month (solid), the forecast (dashed) with its likely range (band), last month (grey) and the budget. */
-export function ForecastChart({ forecast, month, theme }: { forecast: ForecastPoint[]; month: MonthSummary; theme: Theme }) {
+export function ForecastChart({
+  forecast,
+  month,
+  theme,
+  currency = 'GBP',
+}: {
+  forecast: ForecastPoint[]
+  month: MonthSummary
+  theme: Theme
+  currency?: Currency
+}) {
+  const gbp = (n: number, _d?: number) => money(n, currency)
   // Re-read the colour tokens whenever the theme changes
   const t = useMemo(() => readTokens(theme), [theme])
   const [asTable, setAsTable] = useState(false)
@@ -29,9 +40,11 @@ export function ForecastChart({ forecast, month, theme }: { forecast: ForecastPo
   )
   const today = month.days_in_month - month.days_left
   const monthShort = month.label.slice(0, 3)
-  // Round £500 steps on the y-axis, with a little headroom above the highest line
-  const yMax = Math.ceil((Math.max(month.projected_high, month.budget, month.last_month_total) * 1.05) / 500) * 500
-  const yTicks = Array.from({ length: yMax / 500 + 1 }, (_, i) => i * 500)
+  // About 5 round steps on the y-axis (500, 1,000, 2,000...), with a little headroom above the highest line
+  const top = Math.max(month.projected_high, month.budget, month.last_month_total, 1) * 1.05
+  const step = [100, 250, 500, 1000, 2000, 2500, 5000, 10000, 25000].find((s) => top / s <= 6) ?? 50000
+  const yMax = Math.ceil(top / step) * step
+  const yTicks = Array.from({ length: yMax / step + 1 }, (_, i) => i * step)
 
   return (
     <Card delay={0.1} className="flex h-full flex-col">
@@ -63,13 +76,13 @@ export function ForecastChart({ forecast, month, theme }: { forecast: ForecastPo
         <LegendItem label="Last month">
           <span className="h-0.5 w-4 rounded-full" style={{ background: t.compare }} />
         </LegendItem>
-        <LegendItem label={`Budget ${gbp(month.budget, 0)}`}>
+        <LegendItem label={`Usual month ${gbp(month.budget, 0)}`}>
           <span className="w-4 border-t-2 border-dotted" style={{ borderColor: t.ink2 }} />
         </LegendItem>
       </ul>
 
       {asTable ? (
-        <ForecastTable forecast={forecast} monthShort={monthShort} />
+        <ForecastTable forecast={forecast} monthShort={monthShort} currency={currency} />
       ) : (
         <div className="h-[340px] px-2 pt-2 pb-4 sm:px-3">
           <ResponsiveContainer width="100%" height="100%">
@@ -158,7 +171,7 @@ export function ForecastChart({ forecast, month, theme }: { forecast: ForecastPo
               />
               <Tooltip
                 cursor={{ stroke: t.axis, strokeWidth: 1 }}
-                content={(p) => <ForecastTooltip {...p} monthShort={monthShort} budget={month.budget} />}
+                content={(p) => <ForecastTooltip {...p} monthShort={monthShort} budget={month.budget} currency={currency} />}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -183,9 +196,11 @@ type TooltipProps = {
   payload?: ReadonlyArray<{ payload?: ForecastPoint }>
   monthShort: string
   budget: number
+  currency: Currency
 }
 
-function ForecastTooltip({ active, payload, label, monthShort, budget }: TooltipProps) {
+function ForecastTooltip({ active, payload, label, monthShort, budget, currency }: TooltipProps) {
+  const gbp = (n: number, _d?: number) => money(n, currency)
   const p = payload?.[0]?.payload
   if (!active || !p) return null
   const rows: [string, number | null, string][] = [
@@ -215,14 +230,15 @@ function ForecastTooltip({ active, payload, label, monthShort, budget }: Tooltip
         </p>
       )}
       <p className="mt-1.5 flex justify-between gap-6 border-t border-line pt-1.5">
-        <span className="text-muted">Budget</span>
+        <span className="text-muted">Usual month</span>
         <span className="tabular font-medium text-ink-2">{gbp(budget, 0)}</span>
       </p>
     </div>
   )
 }
 
-function ForecastTable({ forecast, monthShort }: { forecast: ForecastPoint[]; monthShort: string }) {
+function ForecastTable({ forecast, monthShort, currency }: { forecast: ForecastPoint[]; monthShort: string; currency: Currency }) {
+  const gbp = (n: number, _d?: number) => money(n, currency)
   return (
     <div className="max-h-[300px] flex-1 overflow-auto px-5 py-4 sm:px-6">
       <table className="tabular w-full text-sm">

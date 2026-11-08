@@ -41,7 +41,8 @@ export function Hero({ data }: { data: Dashboard }) {
   )
 }
 
-/** The model's 0–100 score as a glowing ring. */
+/** The model's score, out of 999 like a credit score, as a glowing ring. */
+const SCORE_MAX = 999
 function ScoreRing({ score }: { score: number }) {
   const shown = useCountUp(score)
   const r = 70
@@ -55,7 +56,7 @@ function ScoreRing({ score }: { score: number }) {
     >
       <div className="relative size-48">
         <div className="absolute inset-6 rounded-full bg-brand/25 blur-2xl" aria-hidden />
-        <svg viewBox="0 0 180 180" className="relative size-full -rotate-90" role="img" aria-label={`Score ${score} out of 100`}>
+        <svg viewBox="0 0 180 180" className="relative size-full -rotate-90" role="img" aria-label={`Score ${score} out of ${SCORE_MAX}`}>
           <defs>
             <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="var(--brand)" />
@@ -73,14 +74,14 @@ function ScoreRing({ score }: { score: number }) {
             strokeLinecap="round"
             strokeDasharray={c}
             initial={{ strokeDashoffset: c }}
-            animate={{ strokeDashoffset: c * (1 - score / 100) }}
+            animate={{ strokeDashoffset: c * (1 - score / SCORE_MAX) }}
             transition={{ duration: 1.3, ease: [0.16, 1, 0.3, 1] }}
           />
         </svg>
         <div className="absolute inset-0 grid place-items-center text-center">
           <div>
             <p className="tabular text-5xl font-semibold tracking-tight text-ink">{Math.round(shown)}</p>
-            <p className="text-xs text-muted">out of 100</p>
+            <p className="text-xs text-muted">out of {SCORE_MAX}</p>
           </div>
         </div>
       </div>

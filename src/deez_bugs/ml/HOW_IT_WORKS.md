@@ -47,10 +47,10 @@ Describe every user by **what % of their money goes to each category**. Group si
 - **Estimated saving** = your monthly spend × the gap. If you're 10 points above on travel and spend 3,000/month, that's about 300.
 - Up to 3 recommendations, biggest gap first.
 
-### 6. The score (0–100)
-- **Score = how much of your spending mix matches people like you.** 100 = identical to your neighbours.
-- Calculated as 100 minus the total percentage points you spend *above* your neighbours.
-- Across the 908 users: median **94**, lowest **70**, highest **98**.
+### 6. The score (0–999, like a UK credit score)
+- **Score = how much of your spending mix matches people like you.** 999 = identical to your neighbours.
+- Calculated as 999 × (1 − the share of your money you spend *above* your neighbours).
+- Across the 908 users (on the old 0–100 scale): median **94**, lowest **70**, highest **98**, i.e. about **939**, **699** and **979** out of 999.
 
 ### 7. A new upload works the same way
 - An uploaded CSV becomes a new user in `transactions`, and the same 14 numbers are calculated for it.
@@ -71,7 +71,7 @@ Describe every user by **what % of their money goes to each category**. Group si
 
 ## Tested end to end through the app
 1. `POST /upload-csv/` with a 60-row statement creates a new user.
-2. `GET /users/{cc_num}/insights` returned: group *"More than most on Eating out & Kids & pets"*, score 75, 20 neighbours, and 3 recommendations (Kids & pets, Groceries, Home).
+2. `GET /users/{cc_num}/insights` returned: group *"More than most on Eating out & Kids & pets"*, score 75 (749 on today's 0–999 scale), 20 neighbours, and 3 recommendations (Kids & pets, Groceries, Home).
 3. An unknown user returns 404. The test upload was deleted afterwards.
 
 ---

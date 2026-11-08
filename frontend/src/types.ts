@@ -92,7 +92,7 @@ export interface Recommendation {
 export interface Insights {
   cc_num: number
   segment: { id: number; name: string; size: number }
-  score: number // 0..100: how much of your spending mix matches people like you
+  score: number // 0..999 (like a credit score): how much of your spending mix matches people like you
   monthly_spend: number
   neighbours: { cc_num: number; similarity: number }[]
   categories: CategoryShare[]
