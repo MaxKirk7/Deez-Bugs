@@ -22,7 +22,6 @@ const LINE = '#22357e'
 const ROUTE = '#e8590c'
 const WALK_KMH = 5
 const SEARCH_RADIUS_KM = 2.5
-const PLACES_PER_PAGE = 5
 
 type RouteState =
   | { status: 'loading' }
@@ -70,7 +69,7 @@ async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal): Promise<Nea
     })
     .filter((place): place is NearbyPlace => place !== null)
     .sort((a, b) => a.distance - b.distance)
-    .slice(0, 20)
+    .slice(0, 5)
 }
 
 function readPin(): SavedPin | null {
@@ -110,7 +109,6 @@ export function SpendingMap({ data }: { data: Dashboard }) {
   const [nearby, setNearby] = useState<NearbyPlace[]>([])
   const [nearbyStatus, setNearbyStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [nearbyVisible, setNearbyVisible] = useState(false)
-  const [nearbyLimit, setNearbyLimit] = useState(PLACES_PER_PAGE)
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -143,7 +141,6 @@ export function SpendingMap({ data }: { data: Dashboard }) {
       setNearby([])
       setNearbyStatus('idle')
       setNearbyVisible(false)
-      setNearbyLimit(PLACES_PER_PAGE)
     })
     layer.current = L.layerGroup().addTo(m)
     map.current = m
@@ -293,7 +290,6 @@ export function SpendingMap({ data }: { data: Dashboard }) {
                 setNearby([])
                 setNearbyStatus('idle')
                 setNearbyVisible(false)
-                setNearbyLimit(PLACES_PER_PAGE)
               }}
               className="shrink-0 text-xs font-medium text-critical hover:underline"
             >
@@ -319,7 +315,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
             </div>
             {nearbyVisible && (
               <div className="space-y-2">
-                {nearby.slice(0, nearbyLimit).map((place) => (
+                {nearby.map((place) => (
                   <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-ink">{place.name}</p>
@@ -328,15 +324,6 @@ export function SpendingMap({ data }: { data: Dashboard }) {
                     <span className="shrink-0 text-xs tabular text-muted">{place.distance.toFixed(2)} km</span>
                   </div>
                 ))}
-                {nearbyLimit < nearby.length && (
-                  <button
-                    type="button"
-                    onClick={() => setNearbyLimit((limit) => Math.min(limit + PLACES_PER_PAGE, nearby.length))}
-                    className="mt-1 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted hover:text-ink"
-                  >
-                    Load more
-                  </button>
-                )}
               </div>
             )}
             {nearbyStatus === 'error' && <p className="text-sm text-critical">Could not load nearby places.</p>}
