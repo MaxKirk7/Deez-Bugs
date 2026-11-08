@@ -4,6 +4,7 @@ import { analyse, checkBackend } from './api'
 import { Dashboard } from './components/Dashboard'
 import { ProcessingScreen } from './components/ProcessingScreen'
 import { UploadScreen } from './components/UploadScreen'
+import { placesFromRows } from './lib/places'
 import { useTheme } from './lib/useTheme'
 import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights } from './mock/demoData'
 import type { Dashboard as DashboardData } from './types'
@@ -26,6 +27,7 @@ function instantDemo(): DashboardData {
     filename: DEMO_FILENAME,
     rows,
     insights: mockInsights(rows),
+    places: placesFromRows(rows),
     preview: demoPreview(),
   }
 }

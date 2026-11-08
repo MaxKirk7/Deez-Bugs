@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 # Shared DB code: reads DATABASE_URL from .env. See src/deez_bugs/db/.
 from deez_bugs.db import UPLOAD_COLUMNS, category_shares, delete_upload, save_upload
+from deez_bugs.db.places import user_places
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
@@ -204,6 +205,15 @@ def user_categories(cc_num: int):
             status_code=404, detail=f"No transactions for cc_num {cc_num}"
         )
     return {"cc_num": cc_num, "categories": shares}
+
+
+@router.get("/users/{cc_num}/places")
+def user_places_map(cc_num: int):
+    """Return home and grouped spending locations for the map."""
+    try:
+        return user_places(cc_num)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"No user with cc_num {cc_num}")
 
 
 @router.delete("/users/{cc_num}")

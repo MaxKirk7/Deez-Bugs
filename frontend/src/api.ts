@@ -93,12 +93,11 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
     const saved = readSavedDemoId()
     if (saved !== null) {
       try {
-        return {
-          ...base,
-          mode: 'live',
-          insights: await getJson<Insights>(`/api/users/${saved}/insights`),
-          places: placesFromRows(rows),
-        }
+        const [insights, places] = await Promise.all([
+          getJson<Insights>(`/api/users/${saved}/insights`),
+          getJson<Places>(`/api/users/${saved}/places`),
+        ])
+        return { ...base, mode: 'live', insights, places }
       } catch {
         // deleted or database reset: upload again below
       }
@@ -109,8 +108,11 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
   body.append('file', new File([csv], base.filename, { type: 'text/csv' }))
   const uploaded = await getJson<UploadResult>('/api/upload-csv/', { method: 'POST', body })
   if (demo) saveDemoId(uploaded.cc_num)
-  const insights = await getJson<Insights>(`/api/users/${uploaded.cc_num}/insights`)
-  return { ...base, mode: 'live', insights, places: placesFromRows(rows) }
+  const [insights, places] = await Promise.all([
+    getJson<Insights>(`/api/users/${uploaded.cc_num}/insights`),
+    getJson<Places>(`/api/users/${uploaded.cc_num}/places`),
+  ])
+  return { ...base, mode: 'live', insights, places }
 }
 
 /** "Delete my data": removes an uploaded user and all their transactions. */

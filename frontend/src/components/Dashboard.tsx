@@ -4,7 +4,7 @@ import { Goals } from './Goals'
 import { Heatmap } from './Heatmap'
 import { Hero } from './Hero'
 import { MixQuiz } from './MixQuiz'
-import { NewFeatureSlot } from './NewFeatureSlot'
+import { SpendingMap } from './SpendingMap'
 import { Preview } from './Preview'
 import { AssistantScreen } from './AssistantScreen'
 import { AssistantFloatingButton, TopBar } from './TopBar'
@@ -53,7 +53,7 @@ export function Dashboard({
         <Hero data={data} />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <MixQuiz data={data} />
-          <NewFeatureSlot data={data} />
+          <SpendingMap data={data} />
         </div>
         <Heatmap data={data} />
         <Goals data={data} />
