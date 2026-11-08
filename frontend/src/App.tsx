@@ -2,7 +2,6 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useCallback, useEffect, useState } from 'react'
 import { analyse, checkBackend } from './api'
 import { Dashboard } from './components/Dashboard'
-import { AssistantScreen } from './components/AssistantScreen'
 import { ProcessingScreen } from './components/ProcessingScreen'
 import { UploadScreen } from './components/UploadScreen'
 import { placesFromRows } from './lib/places'
@@ -18,7 +17,6 @@ type Screen =
   | { name: 'upload' }
   | { name: 'processing'; data: DashboardData | null }
   | { name: 'dashboard'; data: DashboardData }
-  | { name: 'assistant'; data: DashboardData }
 
 function instantDemo(): DashboardData {
   const rows = demoRows()
@@ -43,6 +41,7 @@ export default function App() {
   const [live, setLive] = useState<boolean | null>(null) // null = still checking
   const [error, setError] = useState<string | null>(null)
   const [muted, setMuted] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
 
   useEffect(() => {
     checkBackend().then(setLive)
@@ -75,18 +74,14 @@ export default function App() {
               data={screen.data}
               theme={theme}
               onToggleTheme={toggle}
-              onReset={() => setScreen({ name: 'upload' })}
-              onOpenAssistant={() => setScreen({ name: 'assistant', data: screen.data })}
+              onReset={() => {
+                setAssistantOpen(false)
+                setScreen({ name: 'upload' })
+              }}
+              assistantOpen={assistantOpen}
+              onOpenAssistant={() => setAssistantOpen((open) => !open)}
+              onCloseAssistant={() => setAssistantOpen(false)}
               onChange={(data) => setScreen({ name: 'dashboard', data })}
-            />
-          )}
-          {screen.name === 'assistant' && (
-            <AssistantScreen
-              data={screen.data}
-              theme={theme}
-              onToggleTheme={toggle}
-              onReset={() => setScreen({ name: 'upload' })}
-              onOpenAssistant={() => setScreen({ name: 'dashboard', data: screen.data })}
               muted={muted}
               onToggleMute={() => setMuted((value) => !value)}
             />

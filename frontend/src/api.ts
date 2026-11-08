@@ -75,23 +75,10 @@ export function parseStatement(text: string): StatementRow[] {
   const col = (name: string) => head.indexOf(name)
   const [t, m, c, a] = ['trans_date_trans_time', 'merchant', 'category', 'amt'].map(col)
   if ([t, m, c, a].some((i) => i < 0)) throw new Error('CSV needs the columns trans_date_trans_time, merchant, category, amt')
-  // Optional location columns (for the map): -1 if the CSV doesn't have them.
-  const [mlat, mlong, hlat, hlong, hcity] = ['merch_lat', 'merch_long', 'lat', 'long', 'city'].map(col)
-  const num = (f: string[], i: number) => (i < 0 || f[i] === undefined || f[i].trim() === '' ? null : Number(f[i]))
   return lines
     .slice(1)
     .map(split)
-    .map((f) => ({
-      trans_date_trans_time: f[t],
-      merchant: f[m],
-      category: f[c] as Category,
-      amt: Number(f[a]),
-      merch_lat: num(f, mlat),
-      merch_long: num(f, mlong),
-      lat: num(f, hlat),
-      long: num(f, hlong),
-      city: hcity < 0 ? null : f[hcity] || null,
-    }))
+    .map((f) => ({ trans_date_trans_time: f[t], merchant: f[m], category: f[c] as Category, amt: Number(f[a]) }))
     .filter((r) => r.amt > 0 && CATEGORIES.includes(r.category))
 }
 
@@ -187,6 +174,29 @@ export async function askAssistant(
     throw new Error('The backend returned an incomplete assistant response. Restart the backend and try again.')
   }
   return result
+}
+
+export async function speakAssistant(
+  text: string,
+  signal: AbortSignal | undefined,
+  audioContext: AudioContext,
+): Promise<AudioBufferSourceNode> {
+  const response = await fetch('/api/assistant/speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+    signal,
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.detail ?? `Speech request failed (${response.status})`)
+  }
+  const buffer = await audioContext.decodeAudioData(await response.arrayBuffer())
+  const source = audioContext.createBufferSource()
+  source.buffer = buffer
+  source.connect(audioContext.destination)
+  source.start()
+  return source
 }
 
 const DEMO_ID_KEY = 'penny.demoCcNum.v3' // v3: Alex with purchases to check ("Was this you?")

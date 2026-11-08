@@ -38,11 +38,31 @@ export interface StatementRow {
   merchant: string
   category: Category
   amt: number // money spent (positive)
-  merch_lat?: number | null // optional: where the purchase happened
+  merch_lat?: number | null
   merch_long?: number | null
-  lat?: number | null // optional: where the person lives (same on every row)
+  lat?: number | null
   long?: number | null
   city?: string | null
+}
+
+export interface Area {
+  id: number
+  lat: number
+  long: number
+  visits: number
+  spend: number
+  top_category: Category
+  shops: { merchant: string; visits: number; spend: number }[]
+  km_from_home: number | null
+}
+
+export interface Places {
+  cc_num: number
+  home: { lat: number; long: number; city: string | null } | null
+  areas: Area[]
+  area_radius_km: number
+  located_purchases: number
+  online_purchases: number
 }
 
 export interface UploadResult {
@@ -77,28 +97,6 @@ export interface Insights {
   neighbours: { cc_num: number; similarity: number }[]
   categories: CategoryShare[]
   recommendations: Recommendation[]
-}
-
-/** One circle on the map: nearby purchases grouped together. */
-export interface Area {
-  id: number
-  lat: number
-  long: number
-  visits: number // how many purchases here (circle size)
-  spend: number // money spent here (circle colour)
-  top_category: Category
-  shops: { merchant: string; visits: number; spend: number }[] // top 3
-  km_from_home: number | null // straight line; null if we don't know where they live
-}
-
-/** GET /users/{cc_num}/places */
-export interface Places {
-  cc_num: number
-  home: { lat: number; long: number; city: string | null } | null
-  areas: Area[]
-  area_radius_km: number
-  located_purchases: number
-  online_purchases: number // no location (online shops, apps)
 }
 
 /** One purchase on the "Unusual transactions" card. ts is ISO, e.g. "2026-10-17T01:31:00+00:00". */

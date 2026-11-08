@@ -5,9 +5,10 @@ import { Goals } from './Goals'
 import { Heatmap } from './Heatmap'
 import { Hero } from './Hero'
 import { MixQuiz } from './MixQuiz'
-import { Preview } from './Preview'
 import { SpendingMap } from './SpendingMap'
-import { TopBar } from './TopBar'
+import { Preview } from './Preview'
+import { AssistantScreen } from './AssistantScreen'
+import { AssistantFloatingButton, TopBar } from './TopBar'
 import { UnusualTransactions } from './UnusualTransactions'
 
 /**
@@ -24,15 +25,23 @@ export function Dashboard({
   theme,
   onToggleTheme,
   onReset,
+  assistantOpen,
   onOpenAssistant,
   onChange,
+  onCloseAssistant,
+  muted,
+  onToggleMute,
 }: {
   data: DashboardData
   theme: Theme
   onToggleTheme: () => void
   onReset: () => void
+  assistantOpen: boolean
   onOpenAssistant: () => void
   onChange: (data: DashboardData) => void
+  onCloseAssistant: () => void
+  muted: boolean
+  onToggleMute: () => void
 }) {
   // "Was this you?" answered: show the updated score, map, calendar...
   const onAnswer = async (row: UnusualRow, wasMe: boolean) => onChange(await answerUnusual(data, row, wasMe))
@@ -44,10 +53,11 @@ export function Dashboard({
         theme={theme}
         onToggleTheme={onToggleTheme}
         onReset={onReset}
-        onOpenAssistant={onOpenAssistant}
-        assistantActive={false}
       />
-      <main className="mx-auto max-w-6xl space-y-5 px-4 pb-20 sm:px-6">
+      <main
+        className="mx-auto max-w-6xl space-y-5 px-4 pb-20 sm:px-6"
+        onClick={assistantOpen ? onCloseAssistant : undefined}
+      >
         <Hero data={data} />
         <UnusualTransactions data={data} onAnswer={onAnswer} />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -61,6 +71,15 @@ export function Dashboard({
         </div>
         <footer className="pt-10 text-center text-xs text-muted">Penny · Deez-Bugs · HackTheBurgh 2026</footer>
       </main>
+      <AssistantFloatingButton onClick={onOpenAssistant} active={assistantOpen} />
+      {assistantOpen && (
+        <AssistantScreen
+          data={data}
+          muted={muted}
+          onToggleMute={onToggleMute}
+          onClose={onCloseAssistant}
+        />
+      )}
     </div>
   )
 }

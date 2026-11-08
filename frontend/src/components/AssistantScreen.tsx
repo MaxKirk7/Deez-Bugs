@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
 import { motion } from 'motion/react'
-import { askAssistant } from '../api'
-import type { Theme } from '../lib/useTheme'
+import { askAssistant, speakAssistant } from '../api'
 import type { AssistantProfile, Dashboard as DashboardData } from '../types'
-import { TopBar } from './TopBar'
 
 const prompts = [
   'Explain my monthly habits',
@@ -17,28 +15,25 @@ const THINKING_TEXT = 'Thinking about your spending...'
 
 export function AssistantScreen({
   data,
-  theme,
-  onToggleTheme,
-  onReset,
-  onOpenAssistant,
   muted,
   onToggleMute,
+  onClose,
 }: {
   data: DashboardData
-  theme: Theme
-  onToggleTheme: () => void
-  onReset: () => void
-  onOpenAssistant: () => void
   muted: boolean
   onToggleMute: () => void
+  onClose: () => void
 }) {
   const [activePrompt, setActivePrompt] = useState<string | null>(null)
   const [askedPrompts, setAskedPrompts] = useState<Set<string>>(new Set())
   const [showSuggestions, setShowSuggestions] = useState(true)
-  const [answer, setAnswer] = useState<string | null>(null)
   const [summary, setSummary] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const audioRef = useRef<AudioBufferSourceNode | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const disposedRef = useRef(false)
+  const speechControllerRef = useRef<AbortController | null>(null)
 
   const profile = useMemo<AssistantProfile>(
     () => ({
@@ -66,41 +61,91 @@ export function AssistantScreen({
       setActivePrompt(null)
       setShowSuggestions(false)
       setLoading(true)
-      setAnswer(null)
       setSummary([])
       setError(null)
+      speechControllerRef.current?.abort()
+      const speechController = new AbortController()
+      speechControllerRef.current = speechController
       askAssistant(activePrompt, profile)
         .then((result) => {
-          setAnswer(result.answer)
           setSummary(
             (result.summary || result.answer)
               .split('\n')
-              .map((point) => point.replace(/^[-*]\s*/, '').trim())
+              .map((point) => point.replace(/\*\*/g, '').replace(/^[-*]\s*/, '').trim())
               .filter(Boolean),
           )
+          if (!muted) {
+            const audioContext = audioContextRef.current
+            if (!audioContext) return
+            return speakAssistant(result.answer, speechController.signal, audioContext).then((audio) => {
+              if (disposedRef.current || muted) {
+                audio.stop()
+                return
+              }
+              audioRef.current?.stop()
+              audioRef.current = audio
+            })
+          }
         })
         .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Unable to generate an answer.'))
         .finally(() => setLoading(false))
     }, 100)
 
     return () => window.clearTimeout(timer)
-  }, [activePrompt, profile])
+  }, [activePrompt, muted, profile])
+
+  useEffect(() => {
+    if (muted) {
+      audioRef.current?.stop()
+      audioRef.current = null
+    }
+  }, [muted])
+
+  useEffect(() => {
+    disposedRef.current = false
+
+    return () => {
+      disposedRef.current = true
+      speechControllerRef.current?.abort()
+      audioRef.current?.stop()
+      audioRef.current = null
+      void audioContextRef.current?.close()
+    }
+  }, [])
 
   const handlePromptClick = (prompt: string) => {
+    if (!audioContextRef.current) audioContextRef.current = new AudioContext()
+    void audioContextRef.current.resume()
     setActivePrompt(prompt)
   }
 
+  const handleAskAnother = () => {
+    audioRef.current?.stop()
+    audioRef.current = null
+    setShowSuggestions(true)
+  }
+
+  const handleClose = () => {
+    speechControllerRef.current?.abort()
+    audioRef.current?.stop()
+    audioRef.current = null
+    onClose()
+  }
+
   return (
-    <div className="min-h-dvh">
-      <TopBar
-        data={data}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-        onReset={onReset}
-        onOpenAssistant={onOpenAssistant}
-        assistantActive
+    <>
+      <button
+        type="button"
+        aria-label="Close assistant"
+        onClick={handleClose}
+        className="fixed inset-0 z-30 bg-black/10"
       />
-      <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col items-center px-4 pb-20 pt-16 text-center sm:px-6 sm:pt-24">
+      <aside
+        aria-label="AI assistant"
+        className="fixed inset-y-0 right-0 z-40 w-full min-w-[22rem] max-w-[33.333vw] overflow-y-auto border-l border-line bg-bg p-6 shadow-2xl sm:p-8"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <main className="flex min-h-full flex-col items-center pt-12 text-center">
         <img
           src="/ai-placeholder.svg"
           alt="AI assistant placeholder"
@@ -160,17 +205,19 @@ export function AssistantScreen({
             </div>
             <button
               type="button"
-              onClick={() => setShowSuggestions(true)}
+              onClick={handleAskAnother}
               className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-surface-solid transition-transform hover:-translate-y-0.5"
             >
               Ask another question
             </button>
           </div>
         )}
-      </main>
-    </div>
+        </main>
+      </aside>
+    </>
   )
 }
+
 
 function ThinkingIndicator() {
   return (
