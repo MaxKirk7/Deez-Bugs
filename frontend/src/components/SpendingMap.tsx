@@ -72,7 +72,12 @@ export function SpendingMap({ data }: { data: Dashboard }) {
     const m = L.map(el.current, { zoomControl: false, zoomSnap: 0.25, scrollWheelZoom: false, attributionControl: false })
     L.control.zoom({ position: 'bottomright' }).addTo(m)
     L.tileLayer(TILES, { maxZoom: 18 }).addTo(m)
-    const points = places.areas.map((a) => L.latLng(a.lat, a.long))
+    // Open on where they usually shop: a one-off trip far away (e.g. London for an Edinburgh
+    // student) would zoom out to the whole country. Far = > 50 km and > 3× their median distance.
+    const dists = places.areas.map((a) => a.km_from_home).filter((d): d is number => d != null).sort((a, b) => a - b)
+    const limit = Math.max(50, 3 * (dists[Math.floor(dists.length / 2)] ?? 0))
+    const usual = places.areas.filter((a) => a.km_from_home == null || a.km_from_home <= limit)
+    const points = (usual.length ? usual : places.areas).map((a) => L.latLng(a.lat, a.long))
     if (places.home) points.push(L.latLng(places.home.lat, places.home.long))
     m.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 15 })
     m.on('click', () => setSelected(null))
