@@ -21,6 +21,7 @@ const SCALE = ['#c9dcef', '#93bde3', '#5c9bd5', '#2f6fb5', '#22357e'] // light â
 const LINE = '#22357e'
 const ROUTE = '#e8590c'
 const WALK_KMH = 5
+const SEARCH_RADIUS_KM = 2.5
 
 type RouteState =
   | { status: 'loading' }
@@ -28,6 +29,7 @@ type RouteState =
   | { status: 'error' }
 
 type SavedPin = { lat: number; long: number }
+type NearbyPlace = { id: string; name: string; category: string; lat: number; long: number; distance: number }
 
 const PINS_KEY = 'penny.mapPin.v1'
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
@@ -35,6 +37,39 @@ const km = (n: number) => (n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(n 
 const radius = (visits: number) => Math.min(9 + Math.sqrt(visits) * 3, 34)
 const areaName = (a: Area) => a.shops[0].merchant + (a.shops.length > 1 ? ` +${a.shops.length - 1}` : '')
 const formatCoordinate = (value: number) => value.toFixed(5)
+const distanceBetween = (a: SavedPin, b: SavedPin) => {
+  const radians = (value: number) => (value * Math.PI) / 180
+  const latitude = radians(b.lat - a.lat)
+  const longitude = radians(b.long - a.long)
+  const haversine = Math.sin(latitude / 2) ** 2 + Math.cos(radians(a.lat)) * Math.cos(radians(b.lat)) * Math.sin(longitude / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.sqrt(haversine))
+}
+
+async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal): Promise<NearbyPlace[]> {
+  const query = `[out:json][timeout:20];(nwr["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags;`
+  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal })
+  if (!response.ok) throw new Error('Nearby place search is unavailable right now.')
+  const body: { elements?: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: { name?: string; amenity?: string; shop?: string } }[] } =
+    await response.json()
+  return (body.elements ?? [])
+    .map((element) => {
+      const lat = element.lat ?? element.center?.lat
+      const long = element.lon ?? element.center?.lon
+      const rawCategory = element.tags?.amenity ?? element.tags?.shop ?? 'place'
+      if (!element.tags?.name || lat == null || long == null) return null
+      return {
+        id: `${element.type}-${element.id}`,
+        name: element.tags.name,
+        category: rawCategory === 'supermarket' || rawCategory === 'grocery' || rawCategory === 'convenience' ? 'Grocery' : rawCategory[0].toUpperCase() + rawCategory.slice(1),
+        lat,
+        long,
+        distance: distanceBetween(pin, { lat, long }),
+      }
+    })
+    .filter((place): place is NearbyPlace => place !== null)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 20)
+}
 
 function readPin(): SavedPin | null {
   try {
@@ -75,6 +110,8 @@ export function SpendingMap({ data }: { data: Dashboard }) {
   const [selected, setSelected] = useState<number | null>(null)
   const [routes, setRoutes] = useState<Record<number, RouteState>>({})
   const [pin, setPin] = useState<SavedPin | null>(readPin)
+  const [nearby, setNearby] = useState<NearbyPlace[]>([])
+  const [nearbyStatus, setNearbyStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -104,6 +141,8 @@ export function SpendingMap({ data }: { data: Dashboard }) {
     m.on('click', (event) => {
       setSelected(null)
       setPin({ lat: event.latlng.lat, long: event.latlng.lng })
+      setNearby([])
+      setNearbyStatus('idle')
     })
     layer.current = L.layerGroup().addTo(m)
     map.current = m
@@ -121,6 +160,19 @@ export function SpendingMap({ data }: { data: Dashboard }) {
       // Persistence is best effort when browser storage is unavailable.
     }
   }, [pin])
+
+  const searchNearby = async () => {
+    if (!pin) return
+    setNearbyStatus('loading')
+    const controller = new AbortController()
+    try {
+      setNearby(await findNearbyPlaces(pin, controller.signal))
+      setNearbyStatus('ready')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setNearbyStatus('error')
+    }
+  }
 
   // Fetch the road route when a circle is picked (once per area).
   useEffect(() => {
@@ -222,6 +274,35 @@ export function SpendingMap({ data }: { data: Dashboard }) {
           <p className="mb-4 rounded-xl bg-surface-2 px-3 py-2 text-sm tabular text-muted">
             Saved pin: {formatCoordinate(pin.lat)}, {formatCoordinate(pin.long)}
           </p>
+        )}
+        <div className="mb-4">
+          <button
+            type="button"
+            disabled={!pin || nearbyStatus === 'loading'}
+            onClick={searchNearby}
+            className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {nearbyStatus === 'loading' ? 'Searching nearbyâ€¦' : `Find nearby places (${SEARCH_RADIUS_KM} km)`}
+          </button>
+          {nearbyStatus === 'error' && <p className="mt-2 text-sm text-critical">Could not load nearby places. Please try again.</p>}
+        </div>
+        {nearbyStatus === 'ready' && (
+          <div className="mb-4">
+            <p className="mb-2 text-sm font-semibold text-ink">
+              Nearby places {nearby.length === 0 ? '(none found)' : `(${nearby.length})`}
+            </p>
+            <div className="space-y-2">
+              {nearby.map((place) => (
+                <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-ink">{place.name}</p>
+                    <p className="text-xs text-muted">{place.category}</p>
+                  </div>
+                  <span className="shrink-0 text-xs tabular text-muted">{place.distance.toFixed(2)} km</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
         {places.areas.length > 0 && (
           <>
