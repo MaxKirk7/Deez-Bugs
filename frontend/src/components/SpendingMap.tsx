@@ -312,7 +312,18 @@ export function SpendingMap({ data }: { data: Dashboard }) {
           <div className="mb-4">
             <div className="mb-2 flex items-center gap-2">
               <p className="text-sm font-semibold text-ink">
-                Places near this pin {nearbyStatus === 'ready' ? (nearby.length === 0 ? '(none found)' : `(${nearby.length})`) : '(loading…)'}
+                Places near this pin{' '}
+                {nearbyStatus === 'loading' ? (
+                  <span className="nearby-loading">[Loading…]</span>
+                ) : nearbyStatus === 'ready' ? (
+                  nearby.length === 0 ? (
+                    '(none found)'
+                  ) : (
+                    `(${nearby.length})`
+                  )
+                ) : (
+                  ''
+                )}
               </p>
               <button
                 type="button"

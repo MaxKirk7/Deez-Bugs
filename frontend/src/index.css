@@ -206,6 +206,24 @@ html {
 .spend-map {
   isolation: isolate;
 }
+.nearby-loading {
+  animation: nearby-loading-pulse 1.2s ease-in-out infinite;
+}
+@keyframes nearby-loading-pulse {
+  0%,
+  100% {
+    color: var(--muted);
+  }
+  50% {
+    color: #fff;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nearby-loading {
+    animation: none;
+    color: var(--muted);
+  }
+}
 .spend-map .leaflet-container {
   font: inherit;
   background: var(--surface-solid);
