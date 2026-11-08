@@ -22,6 +22,7 @@ const LINE = '#22357e'
 const ROUTE = '#e8590c'
 const WALK_KMH = 5
 const SEARCH_RADIUS_KM = 2.5
+const PLACES_PER_PAGE = 5
 
 type RouteState =
   | { status: 'loading' }
@@ -109,6 +110,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
   const [nearby, setNearby] = useState<NearbyPlace[]>([])
   const [nearbyStatus, setNearbyStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [nearbyVisible, setNearbyVisible] = useState(false)
+  const [nearbyLimit, setNearbyLimit] = useState(PLACES_PER_PAGE)
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -141,6 +143,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
       setNearby([])
       setNearbyStatus('idle')
       setNearbyVisible(false)
+      setNearbyLimit(PLACES_PER_PAGE)
     })
     layer.current = L.layerGroup().addTo(m)
     map.current = m
@@ -279,9 +282,24 @@ export function SpendingMap({ data }: { data: Dashboard }) {
       <div className="px-5 pb-5 sm:px-6 sm:pb-6">
         {places.areas.length === 0 && <p className="mb-3 text-sm text-muted">No spending locations are available, but you can still drop and save pins.</p>}
         {pin && (
-          <p className="mb-4 rounded-xl bg-surface-2 px-3 py-2 text-sm tabular text-muted">
-            Saved pin: {formatCoordinate(pin.lat)}, {formatCoordinate(pin.long)}
-          </p>
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+            <p className="tabular text-muted">
+              Saved pin: {formatCoordinate(pin.lat)}, {formatCoordinate(pin.long)}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setPin(null)
+                setNearby([])
+                setNearbyStatus('idle')
+                setNearbyVisible(false)
+                setNearbyLimit(PLACES_PER_PAGE)
+              }}
+              className="shrink-0 text-xs font-medium text-critical hover:underline"
+            >
+              Remove pin
+            </button>
+          </div>
         )}
         {pin && (
           <div className="mb-4">
@@ -301,7 +319,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
             </div>
             {nearbyVisible && (
               <div className="space-y-2">
-                {nearby.map((place) => (
+                {nearby.slice(0, nearbyLimit).map((place) => (
                   <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-ink">{place.name}</p>
@@ -310,6 +328,15 @@ export function SpendingMap({ data }: { data: Dashboard }) {
                     <span className="shrink-0 text-xs tabular text-muted">{place.distance.toFixed(2)} km</span>
                   </div>
                 ))}
+                {nearbyLimit < nearby.length && (
+                  <button
+                    type="button"
+                    onClick={() => setNearbyLimit((limit) => Math.min(limit + PLACES_PER_PAGE, nearby.length))}
+                    className="mt-1 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted hover:text-ink"
+                  >
+                    Load more
+                  </button>
+                )}
               </div>
             )}
             {nearbyStatus === 'error' && <p className="text-sm text-critical">Could not load nearby places.</p>}
