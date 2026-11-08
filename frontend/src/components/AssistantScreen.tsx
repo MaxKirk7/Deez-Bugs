@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
 import { motion } from 'motion/react'
 import { askAssistant, speakAssistant } from '../api'
-import type { Theme } from '../lib/useTheme'
 import type { AssistantProfile, Dashboard as DashboardData } from '../types'
-import { AssistantFloatingButton, TopBar } from './TopBar'
 
 const prompts = [
   'Explain my monthly habits',
@@ -17,20 +15,14 @@ const THINKING_TEXT = 'Thinking about your spending...'
 
 export function AssistantScreen({
   data,
-  theme,
-  onToggleTheme,
-  onReset,
-  onOpenAssistant,
   muted,
   onToggleMute,
+  onClose,
 }: {
   data: DashboardData
-  theme: Theme
-  onToggleTheme: () => void
-  onReset: () => void
-  onOpenAssistant: () => void
   muted: boolean
   onToggleMute: () => void
+  onClose: () => void
 }) {
   const [activePrompt, setActivePrompt] = useState<string | null>(null)
   const [askedPrompts, setAskedPrompts] = useState<Set<string>>(new Set())
@@ -115,14 +107,18 @@ export function AssistantScreen({
   }
 
   return (
-    <div className="min-h-dvh">
-      <TopBar
-        data={data}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-        onReset={onReset}
+    <>
+      <button
+        type="button"
+        aria-label="Close assistant"
+        onClick={onClose}
+        className="fixed inset-0 z-30 bg-black/10"
       />
-      <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col items-center px-4 pb-20 pt-16 text-center sm:px-6 sm:pt-24">
+      <aside
+        aria-label="AI assistant"
+        className="fixed inset-y-0 right-0 z-40 w-full min-w-[22rem] max-w-[33.333vw] overflow-y-auto border-l border-line bg-bg p-6 shadow-2xl sm:p-8"
+      >
+        <main className="flex min-h-full flex-col items-center pt-12 text-center">
         <img
           src="/ai-placeholder.svg"
           alt="AI assistant placeholder"
@@ -189,9 +185,9 @@ export function AssistantScreen({
             </button>
           </div>
         )}
-      </main>
-      <AssistantFloatingButton onClick={onOpenAssistant} active />
-    </div>
+        </main>
+      </aside>
+    </>
   )
 }
 

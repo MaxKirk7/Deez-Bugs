@@ -6,6 +6,7 @@ import { Hero } from './Hero'
 import { MixQuiz } from './MixQuiz'
 import { NewFeatureSlot } from './NewFeatureSlot'
 import { Preview } from './Preview'
+import { AssistantScreen } from './AssistantScreen'
 import { AssistantFloatingButton, TopBar } from './TopBar'
 
 /**
@@ -21,13 +22,21 @@ export function Dashboard({
   theme,
   onToggleTheme,
   onReset,
+  assistantOpen,
   onOpenAssistant,
+  onCloseAssistant,
+  muted,
+  onToggleMute,
 }: {
   data: DashboardData
   theme: Theme
   onToggleTheme: () => void
   onReset: () => void
+  assistantOpen: boolean
   onOpenAssistant: () => void
+  onCloseAssistant: () => void
+  muted: boolean
+  onToggleMute: () => void
 }) {
   return (
     <div className="min-h-dvh">
@@ -50,7 +59,15 @@ export function Dashboard({
         </div>
         <footer className="pt-10 text-center text-xs text-muted">Penny · Deez-Bugs · HackTheBurgh 2026</footer>
       </main>
-      <AssistantFloatingButton onClick={onOpenAssistant} />
+      <AssistantFloatingButton onClick={onOpenAssistant} active={assistantOpen} />
+      {assistantOpen && (
+        <AssistantScreen
+          data={data}
+          muted={muted}
+          onToggleMute={onToggleMute}
+          onClose={onCloseAssistant}
+        />
+      )}
     </div>
   )
 }
