@@ -11,7 +11,7 @@
 import { agentScripts } from './mock/agentDemo'
 import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights, toCsv } from './mock/demoData'
 import { CATEGORIES } from './lib/categories'
-import type { AgentResult, AgentStep, AssistantProfile, Category, Dashboard, Insights, StatementRow, UploadResult } from './types'
+import type { AgentResult, AgentStep, AssistantProfile, Category, Dashboard, Insights, Places, StatementRow, UploadResult } from './types'
 
 const FORCE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -84,7 +84,7 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
 
   if (!live) {
     await wait(400)
-    return { ...base, mode: 'demo', insights: mockInsights(rows) }
+    return { ...base, mode: 'demo', insights: mockInsights(rows), places: placesFromRows(rows) }
   }
 
   // Alex is uploaded once, then re-used: no new copy in the database on every click.

@@ -35,6 +35,31 @@ export interface StatementRow {
   merchant: string
   category: Category
   amt: number // money spent (positive)
+  merch_lat?: number | null
+  merch_long?: number | null
+  lat?: number | null
+  long?: number | null
+  city?: string | null
+}
+
+export interface Area {
+  id: number
+  lat: number
+  long: number
+  visits: number
+  spend: number
+  top_category: Category
+  shops: { merchant: string; visits: number; spend: number }[]
+  km_from_home: number | null
+}
+
+export interface Places {
+  cc_num: number
+  home: { lat: number; long: number; city: string | null } | null
+  areas: Area[]
+  area_radius_km: number
+  located_purchases: number
+  online_purchases: number
 }
 
 export interface UploadResult {
@@ -151,6 +176,7 @@ export interface Dashboard {
   filename: string
   rows: StatementRow[] // the statement itself (read in the browser), for the heatmap
   insights: Insights
+  places: Places
   preview: Preview // always PLACEHOLDER
 }
 
