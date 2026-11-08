@@ -113,7 +113,7 @@ export function Heatmap({ data }: { data: Dashboard }) {
       <CardHeader
         icon={CalendarDays}
         title="Your spending calendar"
-        subtitle="Every square is a day. Darker means you spent more."
+        subtitle="Every square is a day. The stronger the colour, the more you spent."
         action={<SourceTag kind="live">From your statement</SourceTag>}
       />
       <div className="grid gap-6 px-5 pt-5 pb-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_240px]">

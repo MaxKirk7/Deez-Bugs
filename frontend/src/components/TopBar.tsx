@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { AudioLines, Bot, Moon, RotateCcw, Sun } from 'lucide-react'
+import { AudioLines, Bot, Moon, RotateCcw, Sparkles, Sun } from 'lucide-react'
+import { PAGES, type PageId } from '../lib/pages'
 import type { Theme } from '../lib/useTheme'
 import type { Dashboard } from '../types'
 import { Logo } from './UploadScreen'
@@ -9,18 +10,44 @@ export function TopBar({
   theme,
   onToggleTheme,
   onReset,
+  page,
+  onNavigate,
+  onAskPenny,
 }: {
   data: Dashboard
   theme: Theme
   onToggleTheme: () => void
   onReset: () => void
+  page: PageId
+  onNavigate: (page: PageId) => void
+  onAskPenny: () => void
 }) {
+  const toCheck = data.unusual.rows.length
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-bg/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
-        <Logo />
-        <div className="ml-auto flex items-center gap-2">
+        <button type="button" onClick={() => onNavigate('home')} aria-label="Home" className="shrink-0">
+          <Logo />
+        </button>
+        <nav aria-label="Pages" className="hidden min-w-0 items-center gap-1 lg:flex">
+          {PAGES.map((p) => (
+            <NavLink key={p.id} active={page === p.id} onClick={() => onNavigate(p.id)} count={p.id === 'unusual' ? toCheck : 0}>
+              {p.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <ModePill live={data.mode === 'live'} />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAskPenny()
+            }}
+            className="glass hidden h-9 items-center gap-1.5 rounded-full border border-line px-4 text-sm font-medium text-ink transition-colors hover:border-brand/60 sm:inline-flex"
+          >
+            <Sparkles className="size-3.5 text-brand" aria-hidden /> Ask Penny
+          </button>
           <button
             type="button"
             onClick={onToggleTheme}
@@ -39,7 +66,33 @@ export function TopBar({
           </button>
         </div>
       </div>
+      {/* Small screens: the same pages as a row you can swipe */}
+      <nav aria-label="Pages" className="no-scrollbar flex gap-1 overflow-x-auto px-4 pb-2 lg:hidden">
+        {PAGES.map((p) => (
+          <NavLink key={p.id} active={page === p.id} onClick={() => onNavigate(p.id)} count={p.id === 'unusual' ? toCheck : 0}>
+            {p.label}
+          </NavLink>
+        ))}
+      </nav>
     </header>
+  )
+}
+
+function NavLink({ active, onClick, count, children }: { active: boolean; onClick: () => void; count: number; children: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${
+        active ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'
+      }`}
+    >
+      {children}
+      {count > 0 && (
+        <span className="grid min-w-4.5 place-items-center rounded-full bg-warning px-1 text-[10px] leading-4 font-semibold text-black">{count}</span>
+      )}
+    </button>
   )
 }
 
@@ -87,7 +140,7 @@ export function AssistantFloatingButton({ onClick, active = false }: { onClick: 
         onClick={onClick}
         aria-label={active ? 'Return to dashboard' : 'Open voice assistant'}
         className={`grid size-14 place-items-center rounded-full border shadow-card transition-transform hover:-translate-y-0.5 ${
-          active ? 'border-brand bg-brand text-white' : 'glass border-line text-ink-2 hover:border-brand hover:text-brand'
+          active ? 'border-brand bg-brand text-on-brand' : 'glass border-line text-ink-2 hover:border-brand hover:text-brand'
         }`}
       >
         <Bot className="size-5" aria-hidden />

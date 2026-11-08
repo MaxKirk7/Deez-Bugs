@@ -87,7 +87,7 @@ export function UploadScreen({ live, onFile }: { live: boolean | null; onFile: (
                 : 'glass border-line shadow-card hover:border-brand/50'
             }`}
           >
-            <span className="grid size-12 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/25 transition-transform group-hover:-translate-y-0.5">
+            <span className="grid size-12 place-items-center rounded-2xl bg-brand text-on-brand shadow-lg shadow-brand/25 transition-transform group-hover:-translate-y-0.5">
               <Upload className="size-5" aria-hidden />
             </span>
             <span className="text-base font-semibold text-ink">Drop your bank statement here</span>
@@ -144,7 +144,7 @@ export function UploadScreen({ live, onFile }: { live: boolean | null; onFile: (
 export function Logo() {
   return (
     <span className="inline-flex items-center gap-2.5">
-      <span className="grid size-8 place-items-center rounded-[10px] bg-brand text-white shadow-md shadow-brand/30">
+      <span className="grid size-8 place-items-center rounded-[10px] bg-brand text-on-brand shadow-md shadow-brand/30">
         <PiggyBank className="size-[18px]" aria-hidden />
       </span>
       <span className="text-lg font-semibold tracking-tight text-ink">Penny</span>

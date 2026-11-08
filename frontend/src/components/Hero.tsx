@@ -42,8 +42,8 @@ export function Hero({ data }: { data: Dashboard }) {
 }
 
 /** The model's score, out of 999 like a credit score, as a glowing ring. */
-const SCORE_MAX = 999
-function ScoreRing({ score }: { score: number }) {
+export const SCORE_MAX = 999
+export function ScoreRing({ score }: { score: number }) {
   const shown = useCountUp(score)
   const r = 70
   const c = 2 * Math.PI * r

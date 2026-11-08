@@ -52,7 +52,7 @@ export function ProcessingScreen({ live, ready, onDone }: { live: boolean; ready
               <li key={step} className="flex items-center gap-3 text-sm">
                 <span
                   className={`grid size-6 place-items-center rounded-full transition-colors ${
-                    state === 'done' ? 'bg-brand text-white' : state === 'active' ? 'bg-brand-soft text-brand' : 'bg-surface-2 text-muted'
+                    state === 'done' ? 'bg-brand text-on-brand' : state === 'active' ? 'bg-brand-soft text-brand' : 'bg-surface-2 text-muted'
                   }`}
                 >
                   {state === 'done' ? (

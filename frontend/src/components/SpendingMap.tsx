@@ -17,8 +17,8 @@ import { Card, CardHeader, SourceTag } from './ui'
  */
 
 const TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-const SCALE = ['#c9dcef', '#93bde3', '#5c9bd5', '#2f6fb5', '#22357e'] // light → dark = less → more money
-const LINE = '#22357e'
+const SCALE = ['#d4f1ee', '#a3dfd9', '#6fc4c0', '#3f9a9c', '#1d6a70'] // light → dark = less → more money (Glacier teal)
+const LINE = '#7cc9c9'
 const ROUTE = '#e8590c'
 const WALK_KMH = 5
 const SEARCH_RADIUS_KM = 5

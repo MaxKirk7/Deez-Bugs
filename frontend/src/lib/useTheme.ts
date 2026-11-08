@@ -4,8 +4,9 @@ export type Theme = 'light' | 'dark'
 
 const KEY = 'penny-theme'
 
+/** Penny is dark by default (the toggle in the top bar switches to light, and is remembered). */
 function systemTheme(): Theme {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return 'dark'
 }
 
 function savedTheme(): Theme | null {
@@ -23,7 +24,7 @@ function apply(theme: Theme) {
   document.documentElement.dataset.theme = theme
 }
 
-/** Light/dark theme: follows the OS until the user picks one, then remembers it. */
+/** Light/dark theme: dark until the user picks one, then remembers it. */
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
     const t = savedTheme() ?? systemTheme()

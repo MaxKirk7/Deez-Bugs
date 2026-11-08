@@ -48,7 +48,7 @@ export function SavingsAgent({ savings }: { savings: SavingsOpportunity[] }) {
             <button
               type="button"
               onClick={() => idle.forEach((s) => start(s.id))}
-              className="hidden shrink-0 items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-md shadow-brand/25 transition-transform hover:-translate-y-0.5 sm:inline-flex"
+              className="hidden shrink-0 items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-medium text-on-brand shadow-md shadow-brand/25 transition-transform hover:-translate-y-0.5 sm:inline-flex"
             >
               <Sparkles className="size-4" aria-hidden /> Research all
             </button>

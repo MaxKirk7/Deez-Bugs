@@ -19,6 +19,7 @@
   --brand: #2a78d6;
   --brand-strong: #1c5cab;
   --brand-soft: rgba(42, 120, 214, 0.1);
+  --on-brand: #ffffff;
   --compare: #b4b2aa;
   --good: #0ca30c;
   --good-text: #006300;
@@ -35,58 +36,68 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --bg: #07080c;
-    --surface: rgba(255, 255, 255, 0.045);
-    --surface-solid: #14161d;
-    --surface-2: rgba(255, 255, 255, 0.06);
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --muted: #8f8d86;
-    --grid: #2c2c2a;
-    --axis: #383835;
-    --line: rgba(255, 255, 255, 0.09);
-    --violet: #9b85ff;
-    --brand: #3987e5;
-    --brand-strong: #86b6ef;
-    --brand-soft: rgba(57, 135, 229, 0.16);
-    --compare: #5c5b56;
-    --good-text: #3fc13f;
-    --good-soft: rgba(12, 163, 12, 0.16);
-    --warning-text: #fab219;
-    --warning-soft: rgba(250, 178, 25, 0.14);
-    --critical-text: #f07272;
-    --critical-soft: rgba(208, 59, 59, 0.18);
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
-    --glow: rgba(57, 135, 229, 0.22);
+      color-scheme: dark;
+      /* "Glacier Lake": deep lake teal, misty mountains, pale teal → mint accents */
+      --bg: #041a1e;
+      --surface: rgba(14, 52, 58, 0.55);
+      --surface-solid: #0a2a2f;
+      --surface-2: rgba(150, 220, 220, 0.07);
+      --ink: #eaf6f5;
+      --ink-2: #b4cdcd;
+      --muted: #83a3a5;
+      --grid: #163a3f;
+      --axis: #24494e;
+      --line: rgba(150, 220, 220, 0.13);
+      --violet: #8fe3c8;
+      --brand: #7cc9c9;
+      --brand-strong: #a9e4e1;
+      --brand-soft: rgba(124, 201, 201, 0.14);
+      --on-brand: #052327;
+      --compare: #4f7074;
+      --good: #5fd4a6;
+      --good-text: #7fe0b5;
+      --good-soft: rgba(95, 212, 166, 0.14);
+      --warning: #e3c46e;
+      --warning-text: #e9d08a;
+      --warning-soft: rgba(227, 196, 110, 0.12);
+      --critical: #ef8b8b;
+      --critical-text: #f4a3a3;
+      --critical-soft: rgba(239, 139, 139, 0.12);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 18px 40px -20px rgba(0, 0, 0, 0.6);
+      --glow: rgba(124, 201, 201, 0.14);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #07080c;
-  --surface: rgba(255, 255, 255, 0.045);
-  --surface-solid: #14161d;
-  --surface-2: rgba(255, 255, 255, 0.06);
-  --ink: #f0efec;
-  --ink-2: #c3c2b7;
-  --muted: #8f8d86;
-  --grid: #2c2c2a;
-  --axis: #383835;
-  --line: rgba(255, 255, 255, 0.09);
-  --violet: #9b85ff;
-  --brand: #3987e5;
-  --brand-strong: #86b6ef;
-  --brand-soft: rgba(57, 135, 229, 0.16);
-  --compare: #5c5b56;
-  --good-text: #3fc13f;
-  --good-soft: rgba(12, 163, 12, 0.16);
-  --warning-text: #fab219;
-  --warning-soft: rgba(250, 178, 25, 0.14);
-  --critical-text: #f07272;
-  --critical-soft: rgba(208, 59, 59, 0.18);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
-  --glow: rgba(57, 135, 229, 0.22);
+  /* "Glacier Lake": deep lake teal, misty mountains, pale teal → mint accents */
+  --bg: #041a1e;
+  --surface: rgba(14, 52, 58, 0.55);
+  --surface-solid: #0a2a2f;
+  --surface-2: rgba(150, 220, 220, 0.07);
+  --ink: #eaf6f5;
+  --ink-2: #b4cdcd;
+  --muted: #83a3a5;
+  --grid: #163a3f;
+  --axis: #24494e;
+  --line: rgba(150, 220, 220, 0.13);
+  --violet: #8fe3c8;
+  --brand: #7cc9c9;
+  --brand-strong: #a9e4e1;
+  --brand-soft: rgba(124, 201, 201, 0.14);
+  --on-brand: #052327;
+  --compare: #4f7074;
+  --good: #5fd4a6;
+  --good-text: #7fe0b5;
+  --good-soft: rgba(95, 212, 166, 0.14);
+  --warning: #e3c46e;
+  --warning-text: #e9d08a;
+  --warning-soft: rgba(227, 196, 110, 0.12);
+  --critical: #ef8b8b;
+  --critical-text: #f4a3a3;
+  --critical-soft: rgba(239, 139, 139, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 18px 40px -20px rgba(0, 0, 0, 0.6);
+  --glow: rgba(124, 201, 201, 0.14);
 }
 
 /* Expose the tokens as Tailwind colours: bg-surface, text-ink-2, border-line, ... */
@@ -104,6 +115,7 @@
   --color-compare: var(--compare);
   --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
   --color-good: var(--good);
   --color-good-text: var(--good-text);
   --color-good-soft: var(--good-soft);
@@ -233,7 +245,7 @@ html {
   opacity: 0.85;
 }
 :root[data-theme="dark"] .spend-map .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.35) contrast(0.9);
+  filter: invert(1) hue-rotate(180deg) brightness(0.8) saturate(0.5) contrast(0.88) sepia(0.25) hue-rotate(130deg);
 }
 .spend-map .map-area {
   cursor: pointer;
@@ -262,8 +274,8 @@ html {
   transform: translate(-50%, -50%);
   padding: 3px 9px;
   border-radius: 999px;
-  background: #22357e;
-  color: #fff;
+  background: #0f4a50;
+  color: #eaf6f5;
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
@@ -276,4 +288,24 @@ html {
   font-size: 16px;
   line-height: 14px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* Swipeable nav row on phones: no visible scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ───────────────────────── Glacier Lake backdrop (dark theme) ─────────────────────────
+   Misty sky → two soft mountain ridges at the top of the page → deep lake teal below. */
+:root[data-theme="dark"] body {
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 640' preserveAspectRatio='none'><defs><linearGradient id='a' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%234f8089' stop-opacity='.55'/><stop offset='1' stop-color='%234f8089' stop-opacity='0'/></linearGradient><linearGradient id='b' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%23214f57' stop-opacity='.8'/><stop offset='1' stop-color='%23214f57' stop-opacity='0'/></linearGradient></defs><path d='M0 300 L110 230 L200 270 L320 150 L430 250 L540 190 L690 90 L810 210 L920 160 L1050 240 L1170 130 L1290 220 L1440 170 L1440 640 L0 640Z' fill='url(%23a)'/><path d='M0 400 L150 310 L290 370 L430 280 L590 360 L750 270 L890 350 L1030 290 L1190 370 L1310 310 L1440 350 L1440 640 L0 640Z' fill='url(%23b)'/></svg>") top center / 100% 640px no-repeat,
+    linear-gradient(180deg, #3d6a73 0px, #1d4950 240px, #0b2f35 520px, #062328 760px, #041a1e 1000px);
+  background-color: #041a1e;
+}
+:root[data-theme="dark"] body::before {
+  background: radial-gradient(60% 40% at 50% 0%, rgba(160, 220, 225, 0.12), transparent 70%);
 }
