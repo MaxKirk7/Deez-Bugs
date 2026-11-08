@@ -1,6 +1,6 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Car, Footprints, Globe, House, LoaderCircle, MapPin, Route } from 'lucide-react'
+import { Car, Footprints, House, LoaderCircle, MapPin, Route } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORY } from '../lib/categories'
 import { money } from '../lib/format'
@@ -27,10 +27,31 @@ type RouteState =
   | { status: 'ok'; km: number; minutes: number; path: [number, number][] }
   | { status: 'error' }
 
+type SavedPin = { lat: number; long: number }
+
+const PINS_KEY = 'penny.mapPin.v1'
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 const km = (n: number) => (n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(n < 10 ? 1 : 0)} km`)
 const radius = (visits: number) => Math.min(9 + Math.sqrt(visits) * 3, 34)
 const areaName = (a: Area) => a.shops[0].merchant + (a.shops.length > 1 ? ` +${a.shops.length - 1}` : '')
+const formatCoordinate = (value: number) => value.toFixed(5)
+
+function readPin(): SavedPin | null {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(PINS_KEY) ?? 'null')
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      typeof value.lat === 'number' &&
+      typeof value.long === 'number'
+    ) {
+      return { lat: value.lat, long: value.long }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
 
 /** Real road route from the free OSRM demo server (car profile). */
 async function fetchRoute(from: { lat: number; long: number }, to: Area, signal: AbortSignal): Promise<RouteState> {
@@ -53,9 +74,12 @@ export function SpendingMap({ data }: { data: Dashboard }) {
   const live = data.mode === 'live'
   const [selected, setSelected] = useState<number | null>(null)
   const [routes, setRoutes] = useState<Record<number, RouteState>>({})
+  const [pin, setPin] = useState<SavedPin | null>(readPin)
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
+  const pinRef = useRef(pin)
+  pinRef.current = pin
 
   const area = places.areas.find((a) => a.id === selected) ?? null
   const colour = useMemo(() => {
@@ -67,15 +91,20 @@ export function SpendingMap({ data }: { data: Dashboard }) {
 
   // Create the map once.
   useEffect(() => {
-    if (!el.current || places.areas.length === 0) return
+    if (!el.current) return
     // No attribution badge on the map: the OpenStreetMap credit is shown in the legend below instead.
     const m = L.map(el.current, { zoomControl: false, zoomSnap: 0.25, scrollWheelZoom: false, attributionControl: false })
     L.control.zoom({ position: 'bottomright' }).addTo(m)
     L.tileLayer(TILES, { maxZoom: 18 }).addTo(m)
     const points = places.areas.map((a) => L.latLng(a.lat, a.long))
     if (places.home) points.push(L.latLng(places.home.lat, places.home.long))
-    m.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 15 })
-    m.on('click', () => setSelected(null))
+    if (pinRef.current) points.push(L.latLng(pinRef.current.lat, pinRef.current.long))
+    if (points.length) m.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 15 })
+    else m.setView([20, 0], 2)
+    m.on('click', (event) => {
+      setSelected(null)
+      setPin({ lat: event.latlng.lat, long: event.latlng.lng })
+    })
     layer.current = L.layerGroup().addTo(m)
     map.current = m
     return () => {
@@ -83,6 +112,15 @@ export function SpendingMap({ data }: { data: Dashboard }) {
       map.current = null
     }
   }, [places])
+
+  useEffect(() => {
+    try {
+      if (pin) localStorage.setItem(PINS_KEY, JSON.stringify(pin))
+      else localStorage.removeItem(PINS_KEY)
+    } catch {
+      // Persistence is best effort when browser storage is unavailable.
+    }
+  }, [pin])
 
   // Fetch the road route when a circle is picked (once per area).
   useEffect(() => {
@@ -157,42 +195,42 @@ export function SpendingMap({ data }: { data: Dashboard }) {
         title: home.city ? `Home, ${home.city}` : 'Home',
       }).addTo(g)
     }
-  }, [places, selected, routes, colour, currency])
+    if (pin) {
+      L.marker([pin.lat, pin.long], {
+        icon: L.divIcon({ className: 'map-pin', html: '<span>●</span>', iconSize: [14, 14], iconAnchor: [7, 7] }),
+        title: `Saved pin: ${formatCoordinate(pin.lat)}, ${formatCoordinate(pin.long)}`,
+      })
+        .bindTooltip(`Saved pin · ${formatCoordinate(pin.lat)}, ${formatCoordinate(pin.long)}`, { direction: 'top', offset: [0, -8] })
+        .addTo(g)
+    }
+  }, [places, selected, routes, colour, currency, pin])
 
   return (
     <Card delay={0.1} className="flex flex-col">
       <CardHeader
         icon={MapPin}
         title="Where you spend"
-        subtitle={places.home ? 'Every place you bought from, with the trip from home. Click a circle.' : 'Every place you bought from. Click a circle.'}
+        subtitle="Click anywhere on the map to save a latitude/longitude pin."
         action={<SourceTag kind={live ? 'live' : 'placeholder'} />}
       />
-      {places.areas.length === 0 ? (
-        <EmptyMap places={places} />
-      ) : (
-        <>
-          <div className="spend-map relative m-5 mb-3 h-[380px] overflow-hidden rounded-2xl border border-line sm:m-6 sm:mb-3 sm:h-[420px]">
-            <div ref={el} className="absolute inset-0" />
-          </div>
-          <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+      <div className="spend-map relative m-5 mb-3 h-[380px] overflow-hidden rounded-2xl border border-line sm:m-6 sm:mb-3 sm:h-[420px]">
+        <div ref={el} className="absolute inset-0" />
+      </div>
+      <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+        {places.areas.length === 0 && <p className="mb-3 text-sm text-muted">No spending locations are available, but you can still drop and save pins.</p>}
+        {pin && (
+          <p className="mb-4 rounded-xl bg-surface-2 px-3 py-2 text-sm tabular text-muted">
+            Saved pin: {formatCoordinate(pin.lat)}, {formatCoordinate(pin.long)}
+          </p>
+        )}
+        {places.areas.length > 0 && (
+          <>
             {area ? <AreaDetails area={area} places={places} route={routes[area.id]} currency={currency} /> : <Summary places={places} currency={currency} />}
             <Legend places={places} currency={currency} />
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </Card>
-  )
-}
-
-function EmptyMap({ places }: { places: Places }) {
-  return (
-    <div className="m-5 flex min-h-48 flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted sm:m-6">
-      <Globe className="size-6" aria-hidden />
-      <p>No locations in this statement{places.online_purchases ? ` (${places.online_purchases} purchases, all online or without a place)` : ''}.</p>
-      <p className="text-xs">
-        Add <code>merch_lat</code> and <code>merch_long</code> columns to see where you spend, and <code>lat</code> / <code>long</code> for your home.
-      </p>
-    </div>
   )
 }
 
