@@ -8,15 +8,11 @@ export function TopBar({
   theme,
   onToggleTheme,
   onReset,
-  onOpenAssistant,
-  assistantActive,
 }: {
   data: Dashboard
   theme: Theme
   onToggleTheme: () => void
   onReset: () => void
-  onOpenAssistant: () => void
-  assistantActive?: boolean
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-bg/70 backdrop-blur-xl">
@@ -24,22 +20,6 @@ export function TopBar({
         <Logo />
         <div className="ml-auto flex items-center gap-2">
           <ModePill live={data.mode === 'live'} />
-          <button
-            type="button"
-            onClick={onOpenAssistant}
-            aria-label={assistantActive ? 'Return to dashboard' : 'Open voice assistant'}
-            className={`relative grid size-9 place-items-center rounded-full border transition-colors ${
-              assistantActive
-                ? 'border-brand bg-brand text-white shadow-card'
-                : 'glass border-line text-ink-2 hover:text-ink'
-            }`}
-          >
-            <Bot className="size-4" aria-hidden />
-            <AudioLines
-              className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full p-px ${assistantActive ? 'bg-brand' : 'bg-bg'}`}
-              aria-hidden
-            />
-          </button>
           <button
             type="button"
             onClick={onToggleTheme}
@@ -72,5 +52,24 @@ export function ModePill({ live }: { live: boolean }) {
       </span>
       {live ? 'Live model' : 'Demo mode'}
     </span>
+  )
+}
+
+export function AssistantFloatingButton({ onClick, active = false }: { onClick: () => void; active?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={active ? 'Return to dashboard' : 'Open voice assistant'}
+      className={`fixed bottom-6 right-6 z-50 grid size-14 place-items-center rounded-full border shadow-card transition-transform hover:-translate-y-0.5 ${
+        active ? 'border-brand bg-brand text-white' : 'glass border-line text-ink-2 hover:border-brand hover:text-brand'
+      }`}
+    >
+      <Bot className="size-5" aria-hidden />
+      <AudioLines
+        className={`absolute bottom-1 right-1 size-4 rounded-full p-px ${active ? 'bg-brand' : 'bg-bg'}`}
+        aria-hidden
+      />
+    </button>
   )
 }

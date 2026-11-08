@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { askAssistant, speakAssistant } from '../api'
 import type { Theme } from '../lib/useTheme'
 import type { AssistantProfile, Dashboard as DashboardData } from '../types'
-import { TopBar } from './TopBar'
+import { AssistantFloatingButton, TopBar } from './TopBar'
 
 const prompts = [
   'Explain my monthly habits',
@@ -121,8 +121,6 @@ export function AssistantScreen({
         theme={theme}
         onToggleTheme={onToggleTheme}
         onReset={onReset}
-        onOpenAssistant={onOpenAssistant}
-        assistantActive
       />
       <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col items-center px-4 pb-20 pt-16 text-center sm:px-6 sm:pt-24">
         <img
@@ -192,9 +190,11 @@ export function AssistantScreen({
           </div>
         )}
       </main>
+      <AssistantFloatingButton onClick={onOpenAssistant} active />
     </div>
   )
 }
+
 
 function ThinkingIndicator() {
   return (

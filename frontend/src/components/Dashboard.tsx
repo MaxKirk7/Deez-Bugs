@@ -6,7 +6,7 @@ import { Hero } from './Hero'
 import { MixQuiz } from './MixQuiz'
 import { NewFeatureSlot } from './NewFeatureSlot'
 import { Preview } from './Preview'
-import { TopBar } from './TopBar'
+import { AssistantFloatingButton, TopBar } from './TopBar'
 
 /**
  * Page, top to bottom:
@@ -36,8 +36,6 @@ export function Dashboard({
         theme={theme}
         onToggleTheme={onToggleTheme}
         onReset={onReset}
-        onOpenAssistant={onOpenAssistant}
-        assistantActive={false}
       />
       <main className="mx-auto max-w-6xl space-y-5 px-4 pb-20 sm:px-6">
         <Hero data={data} />
@@ -52,6 +50,7 @@ export function Dashboard({
         </div>
         <footer className="pt-10 text-center text-xs text-muted">Penny · Deez-Bugs · HackTheBurgh 2026</footer>
       </main>
+      <AssistantFloatingButton onClick={onOpenAssistant} />
     </div>
   )
 }
