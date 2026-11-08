@@ -37,7 +37,11 @@ export function TopBar({
           ))}
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          <ModePill live={data.mode === 'live'} />
+          <span className="hidden 2xl:inline-flex">
+
+            <ModePill live={data.mode === 'live'} />
+
+          </span>
           <button
             type="button"
             onClick={(e) => {
@@ -84,7 +88,7 @@ function NavLink({ active, onClick, count, children }: { active: boolean; onClic
       type="button"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${
+      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${
         active ? 'border-ink bg-ink text-bg' : 'border-ink/25 text-ink hover:border-ink/60'
       }`}
     >
