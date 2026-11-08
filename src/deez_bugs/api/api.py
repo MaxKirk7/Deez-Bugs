@@ -6,12 +6,14 @@ import json
 import os
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
+from functools import lru_cache
 
 import pandas as pd
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import APIRouter, FastAPI, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, FastAPI, File, HTTPException, Query, Response, UploadFile
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
@@ -39,6 +41,70 @@ class AssistantRequest(BaseModel):
 
 class SpeechRequest(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
+
+
+def _distance_km(lat1: float, long1: float, lat2: float, long2: float) -> float:
+    from math import asin, cos, radians, sin, sqrt
+
+    lat_delta = radians(lat2 - lat1)
+    long_delta = radians(long2 - long1)
+    haversine = sin(lat_delta / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(long_delta / 2) ** 2
+    return 2 * 6371 * asin(sqrt(haversine))
+
+
+@lru_cache(maxsize=128)
+def _nearby_places_cached(lat: float, long: float, radius_km: float) -> list[dict[str, object]]:
+    from math import cos, radians
+
+    lat_delta = radius_km / 111
+    long_delta = radius_km / (111 * max(0.1, abs(cos(radians(lat)))))
+    south, north = lat - lat_delta, lat + lat_delta
+    west, east = long - long_delta, long + long_delta
+    query = (
+        '[out:json][timeout:15];'
+        f'(nwr["amenity"~"restaurant|bar|pub|nightclub"]({south},{west},{north},{east});'
+        f'nwr["shop"~"supermarket|grocery|convenience"]({south},{west},{north},{east}););'
+        'out center tags qt;'
+    )
+    last_error: Exception | None = None
+    for endpoint in ("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"):
+        request = Request(f"{endpoint}?data={quote(query)}", headers={"User-Agent": "Deez-Bugs/1.0"})
+        try:
+            with urlopen(request, timeout=18) as response:
+                body = json.loads(response.read())
+            break
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            last_error = exc
+    else:
+        raise HTTPException(status_code=502, detail="Nearby places provider is unavailable.") from last_error
+
+    results = []
+    for element in body.get("elements", []):
+        tags = element.get("tags", {})
+        name = tags.get("name")
+        element_lat = element.get("lat", element.get("center", {}).get("lat"))
+        element_long = element.get("lon", element.get("center", {}).get("lon"))
+        if not name or element_lat is None or element_long is None:
+            continue
+        distance = _distance_km(lat, long, element_lat, element_long)
+        if distance > radius_km:
+            continue
+        raw_category = tags.get("amenity") or tags.get("shop") or "place"
+        category = "Grocery" if raw_category in {"supermarket", "grocery", "convenience"} else raw_category.replace("_", " ").title()
+        results.append({"id": f"{element.get('type')}-{element.get('id')}", "name": name, "category": category, "lat": element_lat, "long": element_long, "distance": distance})
+    results.sort(key=lambda place: place["distance"])
+    return results
+
+
+@router.get("/nearby-places")
+def nearby_places(
+    lat: float = Query(ge=-90, le=90),
+    long: float = Query(ge=-180, le=180),
+    radius_km: float = Query(default=2.5, gt=0, le=10),
+    limit: int = Query(default=20, gt=0, le=20),
+):
+    """Find named restaurants, bars, clubs and grocery stores near a pin."""
+    return _nearby_places_cached(round(lat, 4), round(long, 4), radius_km)[:limit]
 
 
 @router.post("/assistant/speech")

@@ -1,6 +1,6 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Car, Footprints, Globe, House, LoaderCircle, MapPin, Route } from 'lucide-react'
+import { Car, Footprints, House, LoaderCircle, MapPin, Route } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORY } from '../lib/categories'
 import { money } from '../lib/format'
@@ -21,16 +21,69 @@ const SCALE = ['#c9dcef', '#93bde3', '#5c9bd5', '#2f6fb5', '#22357e'] // light �
 const LINE = '#22357e'
 const ROUTE = '#e8590c'
 const WALK_KMH = 5
+const SEARCH_RADIUS_KM = 5
+const INITIAL_PLACES = 5
 
 type RouteState =
   | { status: 'loading' }
   | { status: 'ok'; km: number; minutes: number; path: [number, number][] }
   | { status: 'error' }
 
+type SavedPin = { lat: number; long: number }
+type NearbyPlace = { id: string; name: string; category: string; lat: number; long: number; distance: number }
+
+const PINS_KEY = 'penny.mapPin.v1'
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 const km = (n: number) => (n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(n < 10 ? 1 : 0)} km`)
 const radius = (visits: number) => Math.min(9 + Math.sqrt(visits) * 3, 34)
 const areaName = (a: Area) => a.shops[0].merchant + (a.shops.length > 1 ? ` +${a.shops.length - 1}` : '')
+const formatCoordinate = (value: number) => value.toFixed(5)
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+const distanceBetween = (a: SavedPin, b: SavedPin) => {
+  const radians = (value: number) => (value * Math.PI) / 180
+  const latitude = radians(b.lat - a.lat)
+  const longitude = radians(b.long - a.long)
+  const haversine = Math.sin(latitude / 2) ** 2 + Math.cos(radians(a.lat)) * Math.cos(radians(b.lat)) * Math.sin(longitude / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.sqrt(haversine))
+}
+
+async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal, limit: number): Promise<NearbyPlace[]> {
+  const query = `[out:json][timeout:10];(nwr["name"]["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["name"]["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags qt;`
+  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal })
+  if (!response.ok) throw new Error('Nearby place search is unavailable right now.')
+  const body: { elements?: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: { name?: string; amenity?: string; shop?: string } }[] } =
+    await response.json()
+  return (body.elements ?? [])
+    .map((element) => {
+      const lat = element.lat ?? element.center?.lat
+      const long = element.lon ?? element.center?.lon
+      const rawCategory = element.tags?.amenity ?? element.tags?.shop ?? 'place'
+      if (!element.tags?.name || lat == null || long == null) return null
+      return {
+        id: `${element.type}-${element.id}`,
+        name: element.tags.name,
+        category: rawCategory === 'supermarket' || rawCategory === 'grocery' || rawCategory === 'convenience' ? 'Grocery' : rawCategory[0].toUpperCase() + rawCategory.slice(1),
+        lat,
+        long,
+        distance: distanceBetween(pin, { lat, long }),
+      }
+    })
+    .filter((place): place is NearbyPlace => place !== null)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, limit)
+}
+
+function readPin(): SavedPin | null {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(PINS_KEY) ?? 'null')
+    if (isRecord(value) && typeof value.lat === 'number' && typeof value.long === 'number') {
+      return { lat: value.lat, long: value.long }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
 
 /** Real road route from the free OSRM demo server (car profile). */
 async function fetchRoute(from: { lat: number; long: number }, to: Area, signal: AbortSignal): Promise<RouteState> {
@@ -53,9 +106,16 @@ export function SpendingMap({ data }: { data: Dashboard }) {
   const live = data.mode === 'live'
   const [selected, setSelected] = useState<number | null>(null)
   const [routes, setRoutes] = useState<Record<number, RouteState>>({})
+  const [pin, setPin] = useState<SavedPin | null>(readPin)
+  const [nearby, setNearby] = useState<NearbyPlace[]>([])
+  const [nearbyStatus, setNearbyStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [nearbyVisible, setNearbyVisible] = useState(false)
+  const [nearbyExpanded, setNearbyExpanded] = useState(false)
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
+  const pinRef = useRef(pin)
+  pinRef.current = pin
 
   const area = places.areas.find((a) => a.id === selected) ?? null
   const colour = useMemo(() => {
@@ -67,7 +127,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
 
   // Create the map once.
   useEffect(() => {
-    if (!el.current || places.areas.length === 0) return
+    if (!el.current) return
     // No attribution badge on the map: the OpenStreetMap credit is shown in the legend below instead.
     const m = L.map(el.current, { zoomControl: false, zoomSnap: 0.25, scrollWheelZoom: false, attributionControl: false })
     L.control.zoom({ position: 'bottomright' }).addTo(m)
@@ -79,8 +139,17 @@ export function SpendingMap({ data }: { data: Dashboard }) {
     const usual = places.areas.filter((a) => a.km_from_home == null || a.km_from_home <= limit)
     const points = (usual.length ? usual : places.areas).map((a) => L.latLng(a.lat, a.long))
     if (places.home) points.push(L.latLng(places.home.lat, places.home.long))
-    m.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 15 })
-    m.on('click', () => setSelected(null))
+    if (pinRef.current) points.push(L.latLng(pinRef.current.lat, pinRef.current.long))
+    if (points.length) m.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 15 })
+    else m.setView([20, 0], 2)
+    m.on('click', (event) => {
+      setSelected(null)
+      setPin({ lat: event.latlng.lat, long: event.latlng.lng })
+      setNearby([])
+      setNearbyStatus('idle')
+      setNearbyVisible(false)
+      setNearbyExpanded(false)
+    })
     layer.current = L.layerGroup().addTo(m)
     map.current = m
     return () => {
@@ -88,6 +157,45 @@ export function SpendingMap({ data }: { data: Dashboard }) {
       map.current = null
     }
   }, [places])
+
+  useEffect(() => {
+    try {
+      if (pin) localStorage.setItem(PINS_KEY, JSON.stringify(pin))
+      else localStorage.removeItem(PINS_KEY)
+    } catch {
+      // Persistence is best effort when browser storage is unavailable.
+    }
+  }, [pin])
+
+  useEffect(() => {
+    if (!pin) return
+    const controller = new AbortController()
+    setNearbyStatus('loading')
+    findNearbyPlaces(pin, controller.signal, INITIAL_PLACES)
+      .then((foundPlaces) => {
+        if (controller.signal.aborted) return
+        setNearby(foundPlaces)
+        setNearbyStatus('ready')
+        setNearbyVisible(true)
+        findNearbyPlaces(pin, controller.signal, 20)
+          .then((allPlaces) => {
+            if (!controller.signal.aborted) setNearby(allPlaces)
+          })
+          .catch(() => {
+            // Keep the initial five usable if the optional expansion is unavailable.
+          })
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted && !(error instanceof DOMException && error.name === 'AbortError')) {
+          setNearbyStatus('error')
+        }
+      })
+    return () => controller.abort()
+  }, [pin])
+
+  const toggleNearby = () => {
+    setNearbyVisible((visible) => !visible)
+  }
 
   // Fetch the road route when a circle is picked (once per area).
   useEffect(() => {
@@ -162,42 +270,109 @@ export function SpendingMap({ data }: { data: Dashboard }) {
         title: home.city ? `Home, ${home.city}` : 'Home',
       }).addTo(g)
     }
-  }, [places, selected, routes, colour, currency])
+    if (pin) {
+      L.marker([pin.lat, pin.long], {
+        icon: L.divIcon({ className: 'map-pin', html: '<span>●</span>', iconSize: [14, 14], iconAnchor: [7, 7] }),
+        title: `Saved pin: ${formatCoordinate(pin.lat)}, ${formatCoordinate(pin.long)}`,
+      })
+        .bindTooltip(`Saved pin · ${formatCoordinate(pin.lat)}, ${formatCoordinate(pin.long)}`, { direction: 'top', offset: [0, -8] })
+        .addTo(g)
+    }
+  }, [places, selected, routes, colour, currency, pin])
 
   return (
     <Card delay={0.1} className="flex flex-col">
       <CardHeader
         icon={MapPin}
         title="Where you spend"
-        subtitle={places.home ? 'Every place you bought from, with the trip from home. Click a circle.' : 'Every place you bought from. Click a circle.'}
+        subtitle="Click anywhere on the map to save a latitude/longitude pin."
         action={<SourceTag kind={live ? 'live' : 'placeholder'} />}
       />
-      {places.areas.length === 0 ? (
-        <EmptyMap places={places} />
-      ) : (
-        <>
-          <div className="spend-map relative m-5 mb-3 h-[380px] overflow-hidden rounded-2xl border border-line sm:m-6 sm:mb-3 sm:h-[420px]">
-            <div ref={el} className="absolute inset-0" />
+      <div className="spend-map relative m-5 mb-3 h-[380px] overflow-hidden rounded-2xl border border-line sm:m-6 sm:mb-3 sm:h-[420px]">
+        <div ref={el} className="absolute inset-0" />
+      </div>
+      <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+        {places.areas.length === 0 && <p className="mb-3 text-sm text-muted">No spending locations are available, but you can still drop and save pins.</p>}
+        {pin && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+            <p className="tabular text-muted">
+              Saved pin: {formatCoordinate(pin.lat)}, {formatCoordinate(pin.long)}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setPin(null)
+                setNearby([])
+                setNearbyStatus('idle')
+                setNearbyVisible(false)
+                setNearbyExpanded(false)
+              }}
+              className="shrink-0 text-xs font-medium text-critical hover:underline"
+            >
+              Remove pin
+            </button>
           </div>
-          <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+        )}
+        {pin && (
+          <div className="mb-4">
+            <div className="mb-2 flex items-center gap-2">
+              <p className="text-sm font-semibold text-ink">
+                Places near this pin{' '}
+                {nearbyStatus === 'loading' ? (
+                  <span className="nearby-loading">[Loading…]</span>
+                ) : nearbyStatus === 'ready' ? (
+                  nearby.length === 0 ? (
+                    '(none found)'
+                  ) : (
+                    `(${nearby.length})`
+                  )
+                ) : (
+                  ''
+                )}
+              </p>
+              <button
+                type="button"
+                disabled={nearbyStatus !== 'ready'}
+                aria-label={nearbyVisible ? 'Hide nearby places' : 'Show nearby places'}
+                onClick={toggleNearby}
+                className="text-lg font-semibold leading-none text-muted hover:text-ink"
+              >
+                {nearbyVisible ? 'v' : '>'}
+              </button>
+            </div>
+            {nearbyVisible && (
+              <div className="space-y-2">
+                {nearby.slice(0, nearbyExpanded ? nearby.length : INITIAL_PLACES).map((place) => (
+                  <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-ink">{place.name}</p>
+                      <p className="text-xs text-muted">{place.category}</p>
+                    </div>
+                    <span className="shrink-0 text-xs tabular text-muted">{place.distance.toFixed(2)} km</span>
+                  </div>
+                ))}
+                {!nearbyExpanded && nearby.length > INITIAL_PLACES && (
+                  <button
+                    type="button"
+                    onClick={() => setNearbyExpanded(true)}
+                    className="mt-1 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted hover:text-ink"
+                  >
+                    Show more
+                  </button>
+                )}
+              </div>
+            )}
+            {nearbyStatus === 'error' && <p className="text-sm text-critical">Could not load nearby places.</p>}
+          </div>
+        )}
+        {places.areas.length > 0 && (
+          <>
             {area ? <AreaDetails area={area} places={places} route={routes[area.id]} currency={currency} /> : <Summary places={places} currency={currency} />}
             <Legend places={places} currency={currency} />
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </Card>
-  )
-}
-
-function EmptyMap({ places }: { places: Places }) {
-  return (
-    <div className="m-5 flex min-h-48 flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted sm:m-6">
-      <Globe className="size-6" aria-hidden />
-      <p>No locations in this statement{places.online_purchases ? ` (${places.online_purchases} purchases, all online or without a place)` : ''}.</p>
-      <p className="text-xs">
-        Add <code>merch_lat</code> and <code>merch_long</code> columns to see where you spend, and <code>lat</code> / <code>long</code> for your home.
-      </p>
-    </div>
   )
 }
 
