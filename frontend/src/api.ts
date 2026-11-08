@@ -93,7 +93,12 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
     const saved = readSavedDemoId()
     if (saved !== null) {
       try {
-        return { ...base, mode: 'live', insights: await getJson<Insights>(`/api/users/${saved}/insights`) }
+        return {
+          ...base,
+          mode: 'live',
+          insights: await getJson<Insights>(`/api/users/${saved}/insights`),
+          places: placesFromRows(rows),
+        }
       } catch {
         // deleted or database reset: upload again below
       }
@@ -105,7 +110,7 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
   const uploaded = await getJson<UploadResult>('/api/upload-csv/', { method: 'POST', body })
   if (demo) saveDemoId(uploaded.cc_num)
   const insights = await getJson<Insights>(`/api/users/${uploaded.cc_num}/insights`)
-  return { ...base, mode: 'live', insights }
+  return { ...base, mode: 'live', insights, places: placesFromRows(rows) }
 }
 
 /** "Delete my data": removes an uploaded user and all their transactions. */
