@@ -5,12 +5,13 @@
  *                  when the backend is running it's uploaded and run through the REAL model)
  *  demoPreview()   forecast, subscriptions, savings ideas: PLACEHOLDER (not in the backend yet)
  *  mockInsights()  PLACEHOLDER model output, used only when the backend is offline
+ *  mockUnusual()   PLACEHOLDER "Was this you?" result, used only when the backend is offline
  *
  * Transactions come from a fixed random seed, so the numbers are the same every run.
  */
 import { CATEGORIES, CATEGORY } from '../lib/categories'
 import { shortDate } from '../lib/format'
-import type { Category, ForecastPoint, Insights, Preview, SavingsOpportunity, StatementRow, Subscription } from '../types'
+import type { Category, ForecastPoint, Insights, Preview, SavingsOpportunity, StatementRow, Subscription, Unusual } from '../types'
 
 export const DEMO_USER = 'Alex'
 export const DEMO_FILENAME = 'alex_statement.csv'
@@ -146,8 +147,33 @@ const SHOP_LOCATIONS: Record<string, readonly [number, number]> = {
   PureGym: [55.9462, -3.2087],
 }
 
+// ── Purchases Alex didn't make, so the demo shows the "Was this you?" card ──
+// A late-night burst of big online orders (copied from how card fraud looks in the dataset)...
+const BURST: [string, string, Category, number][] = [
+  ['2026-10-17 22:39:00', 'ASOS', 'shopping_net', 996],
+  ['2026-10-17 23:10:00', 'Currys', 'shopping_net', 1063],
+  ['2026-10-17 23:47:00', 'Apple', 'shopping_net', 1113],
+  ['2026-10-18 01:11:00', 'Tesco Express', 'grocery_pos', 337],
+  ['2026-10-18 02:56:00', 'Amazon Marketplace', 'misc_net', 741],
+]
+// ...and one in-store purchase 530 km away, in London.
+const FAR_AWAY: [string, string, Category, number, number, number] = ['2026-09-23 14:20:00', 'Harrods', 'shopping_pos', 96, 51.4994, -0.1632]
+
+function suspiciousRows(): StatementRow[] {
+  const home = { lat: DEMO_HOME.lat, long: DEMO_HOME.long, city: DEMO_HOME.city }
+  const [t, merchant, category, amt, merch_lat, merch_long] = FAR_AWAY
+  return [
+    ...BURST.map(([t, merchant, category, amt]) => ({ trans_date_trans_time: t, merchant, category, amt, merch_lat: null, merch_long: null, ...home })),
+    { trans_date_trans_time: t, merchant, category, amt, merch_lat, merch_long, ...home },
+  ]
+}
+
 // ── The statement, in the backend's upload format ─────────────────────────
 export function demoRows(): StatementRow[] {
+  return [...normalRows(), ...suspiciousRows()]
+}
+
+function normalRows(): StatementRow[] {
   return TXNS.filter((t): t is Txn & { category: Category } => t.category !== 'rent' && t.category !== 'bills').map((t, i) => {
     const shop = SHOP_LOCATIONS[t.merchant]
     const jitter = (k: number) => (((i * k) % 13) - 6) * 0.00008 // tills / doors a few metres apart
@@ -333,4 +359,44 @@ export function mockInsights(rows: StatementRow[]): Insights {
         message: `You spend ${Math.round(you[c] * 100)}% of your money on ${label(c)}; your 20 most similar users spend ${Math.round(nb[c] * 100)}%.`,
       })),
   }
+}
+
+/** PLACEHOLDER (backend offline): the "Was this you?" rows the real model finds in Alex's statement. */
+export function mockUnusual(rows: StatementRow[]): Unusual {
+  const iso = (t: string) => `${t.replace(' ', 'T')}+00:00`
+  const inStatement = (t: string, merchant: string) => rows.some((r) => r.trans_date_trans_time === t && r.merchant === merchant)
+  const burst = BURST.slice(0, 4).filter(([t, m]) => inStatement(t, m)) // the 4 the real model flags
+  const out: Unusual = { cc_num: 0, checked: rows.length, too_few: rows.length < 20, rows: [] }
+  if (burst.length >= 3) {
+    out.rows.push({
+      kind: 'burst',
+      start: iso(burst[0][0]),
+      end: iso(burst[burst.length - 1][0]),
+      total: round2(burst.reduce((s, b) => s + b[3], 0)),
+      top_score: 0.99,
+      purchases: burst.map(([t, merchant, category, amount]) => ({ ts: iso(t), merchant, category, amount, score: 0.99 })),
+      reasons: [
+        { kind: 'burst', text: `${burst.length} unusual purchases in 3 hours` },
+        { kind: 'x_usual', text: 'up to 22× your usual' },
+        { kind: 'like_you', text: 'up to 7.8× what people like you spend' },
+      ],
+    })
+  }
+  const [t, merchant, category, amount] = FAR_AWAY
+  if (inStatement(t, merchant)) {
+    out.rows.push({
+      kind: 'single',
+      start: iso(t),
+      end: iso(t),
+      total: amount,
+      top_score: 0.02,
+      purchases: [{ ts: iso(t), merchant, category, amount, score: 0.02 }],
+      reasons: [
+        { kind: 'place', text: '532 km from your usual places' },
+        { kind: 'x_usual', text: '5.1× your usual for Shopping (in store)' },
+        { kind: 'new_shop', text: 'First time at this shop' },
+      ],
+    })
+  }
+  return out
 }

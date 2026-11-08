@@ -58,8 +58,8 @@ def refresh_spend(start=None, end=None) -> None:
 
 
 def copy_transactions(conn: psycopg.Connection, df: pd.DataFrame) -> None:
-    """Bulk-insert rows with columns cc_num, ts, merchant, category, amount, merch_lat, merch_long."""
-    cols = ["cc_num", "ts", "merchant", "category", "amount", "merch_lat", "merch_long"]
+    """Bulk-insert rows with columns cc_num, ts, merchant, category, amount, merch_lat, merch_long, is_fraud."""
+    cols = ["cc_num", "ts", "merchant", "category", "amount", "merch_lat", "merch_long", "is_fraud"]
     with conn.cursor().copy(f"COPY transactions ({', '.join(cols)}) FROM STDIN WITH (FORMAT csv)") as copy:
         for start in range(0, len(df), 100_000):
             buf = io.StringIO()
@@ -83,6 +83,7 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     })
     for col in OPTIONAL_COLUMNS:            # location is optional: empty (NULL) if not in the CSV
         out[col] = pd.to_numeric(df[col], errors="coerce") if col in df.columns else float("nan")
+    out["is_fraud"] = None                  # unknown (an is_fraud column in an upload is ignored)
     out = out.dropna(subset=["ts", "merchant", "category", "amount"])
     return out[out.amount > 0]              # spending only
 
@@ -137,6 +138,28 @@ def delete_upload(cc_num: int) -> bool:
         # Take their totals out of daily_category_spend straight away.
         refresh_spend(pd.Timestamp(days[0]).floor("D"), pd.Timestamp(days[1]).floor("D") + pd.Timedelta(days=1))
     return bool(deleted)
+
+
+def answer_purchases(cc_num: int, purchases: list[dict], was_me: bool) -> int | None:
+    """The user's answer to "Was this you?": marks purchases (each {"ts", "merchant"}) as theirs or not.
+
+    "Not me" sets is_fraud = true, so they drop out of daily_category_spend and the map.
+    Only for uploads (the reference users' labels never change). Returns rows updated, None if not an upload.
+    """
+    ts = [pd.Timestamp(p["ts"]) for p in purchases]
+    with connect() as conn:
+        user = conn.execute("SELECT source FROM users WHERE cc_num = %s", (cc_num,)).fetchone()
+        if user is None or user[0] != "upload":
+            return None
+        updated = conn.execute(
+            """UPDATE transactions t SET is_fraud = %s
+               FROM unnest(%s::timestamptz[], %s::text[]) AS p(ts, merchant)
+               WHERE t.cc_num = %s AND t.ts = p.ts AND t.merchant = p.merchant""",
+            (not was_me, ts, [p["merchant"] for p in purchases], cc_num),
+        ).rowcount
+    if updated and not was_me:
+        refresh_spend(min(ts).floor("D"), max(ts).floor("D") + pd.Timedelta(days=1))
+    return updated
 
 
 def category_shares(cc_num: int) -> list[dict]:

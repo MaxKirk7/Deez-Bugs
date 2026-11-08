@@ -13,7 +13,8 @@ def main() -> None:
             return
         for source, n in conn.execute("SELECT source, COUNT(*) FROM users GROUP BY 1 ORDER BY 1"):
             print(f"   users ({source}): {n:,}")
-        print(f"   transactions: {conn.execute('SELECT COUNT(*) FROM transactions').fetchone()[0]:,}")
+        total, fraud = conn.execute("SELECT COUNT(*), COUNT(*) FILTER (WHERE is_fraud) FROM transactions").fetchone()
+        print(f"   transactions: {total:,}  ({fraud:,} labelled fraud)")
 
 
 if __name__ == "__main__":

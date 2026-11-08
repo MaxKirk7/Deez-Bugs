@@ -40,14 +40,12 @@ UploadScreen ──▶ ProcessingScreen ──▶ Dashboard
         └─ backend offline → DEMO: mock/demoData.ts mockInsights()               (PLACEHOLDER)
 ```
 
-Run both for the live demo:
+Run both for the live demo (from the repo root):
 
 ```bash
-# terminal 1 (repo root): the backend
-uv run python -m uvicorn deez_bugs.api.api:app --port 8000
-# terminal 2: the frontend
-cd frontend && npm run dev
+./run.sh            # backend + frontend together, opens the browser (Ctrl+C stops both)
 ```
+Or separately: `./run.sh backend` and `./run.sh frontend` (or `uv run runserver` for the backend).
 
 - The first model call trains the model (10–40 s). The app starts that warm-up as soon as the upload page loads.
 - **"Try it with Alex"** uploads Alex's statement to the real database **once**; the browser remembers Alex's `cc_num` and re-uses it on later clicks (uploads again only if that user was deleted).

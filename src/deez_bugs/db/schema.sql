@@ -28,7 +28,11 @@ CREATE TABLE IF NOT EXISTS transactions (
         'misc_pos', 'misc_net')),
     amount   NUMERIC(10, 2) NOT NULL CHECK (amount > 0),    -- money spent, in the data's currency
     merch_lat  DOUBLE PRECISION,                             -- where the purchase happened
-    merch_long DOUBLE PRECISION
+    merch_long DOUBLE PRECISION,
+    -- Was this purchase made by someone else (card fraud)?
+    --   true / false: the dataset's label for reference users, or the user's answer to "was this you?"
+    --   NULL: not known yet (uploads start like this)
+    is_fraud BOOLEAN
 ) WITH (
     tsdb.hypertable,
     tsdb.partition_column = 'ts',
@@ -44,14 +48,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS long DOUBLE PRECISION;
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS merch_lat DOUBLE PRECISION;
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS merch_long DOUBLE PRECISION;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_fraud BOOLEAN;
 
 -- Tiger continuous aggregate: spend per user, per category, per day, kept up to date
 -- automatically. Use it for "% of spend per category" and charts instead of summing raw rows.
+-- Fraud is left out: it isn't the person's own spending.
 CREATE MATERIALIZED VIEW IF NOT EXISTS daily_category_spend
 WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 SELECT time_bucket('1 day', ts) AS day, cc_num, category,
        SUM(amount) AS spend, COUNT(*) AS txn_count
 FROM transactions
+WHERE is_fraud IS NOT TRUE
 GROUP BY day, cc_num, category
 WITH NO DATA;
 

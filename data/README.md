@@ -2,7 +2,7 @@
 
 Source: [kartik2112/fraud-detection](https://www.kaggle.com/datasets/kartik2112/fraud-detection) on Kaggle.
 
-> **We don't do anything with fraud.** The dataset was originally published for fraud detection, which is why "fraud" appears in its Kaggle name. We rename the files when downloading. We only use it as realistic spending data (who buys what, where, when and for how much) to build spending groups and recommendations. The fraud label and gender are dropped when the data is loaded into the database.
+> **Fraud is used only for the "Was this you?" check.** The dataset was published for fraud detection. We mainly use it as realistic spending data (who buys what, where, when and for how much) for spending groups and recommendations. The fraud label (`is_fraud`) is stored so we can also spot purchases that don't look like the user's. The spending stats never count those purchases. Gender is dropped.
 
 The data is **synthetic**. It was generated with the Sparkov simulator, so all names, addresses and card numbers are fake. It covers about 1,000 US cardholders between 2019-01-01 and 2020-12-31.
 
@@ -60,7 +60,7 @@ Each row is a single card purchase. A **user is identified by `cc_num`**. Every 
 | `category` | str | Spending category (14 values, see below) | `personal_care` |
 | `merchant` | str | Shop name (693 unique, all fake). Every name has a meaningless `fraud_` prefix from the generator: stripped when loading. | `fraud_Kirlin and Sons` |
 | `merch_lat` / `merch_long` | float | Where the purchase happened | `33.986391`, `-81.200714` |
-| `is_fraud` | int | Leftover label from the original dataset. **Not stored.** | `0` |
+| `is_fraud` | int | 1 = not made by the card owner. Stored as `transactions.is_fraud` (true/false). | `0` |
 
 ### Categories
 
@@ -70,7 +70,7 @@ The data has 14 categories. A `_pos` suffix means in person and `_net` means onl
 
 ## In the database
 
-`uv run tiger-load` stores the **908 real users, each with their latest 12 months** (about 924k purchases), in the `transactions` hypertable, with `cc_num` as the user ID. Only `cc_num`, the purchase time, merchant (without the `fraud_` prefix), category and amount are stored, plus each user's `dob` in `users`. Purchases the dataset marks as not made by the card owner are left out. 91 cards have only those, which is why it's 908 users, not 999. See [docs/DB_DESIGN.md](../docs/DB_DESIGN.md).
+`uv run tiger-load` stores the **908 real users, each with their latest 12 months** (about 928k purchases), in the `transactions` hypertable, with `cc_num` as the user ID. For each purchase we store `cc_num`, the time, the merchant (without the `fraud_` prefix), the category, the amount, where it happened and `is_fraud`. Each user's `dob` and home location go in `users`. 4,075 of those purchases are fraud, spread over 415 users. They're stored with `is_fraud = true` and left out of all the spending stats. 91 cards have only fraud purchases. They're skipped, which is why it's 908 users, not 999. See [docs/DB_DESIGN.md](../docs/DB_DESIGN.md).
 
 ## Things worth knowing
 

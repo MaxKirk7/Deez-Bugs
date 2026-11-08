@@ -25,8 +25,8 @@ All transactions live in **one shared cloud database** on [Tiger Data](https://w
 | Name | What it is |
 |---|---|
 | `users` | One row per person. `cc_num` = user ID. `source` = `reference` (the 908 comparison users) or `upload` (people using the app). Also `dob` and home location: `city`, `state`, `lat`, `long`. |
-| `transactions` | **Hypertable.** Every purchase from everyone: `cc_num`, `ts`, `merchant`, `category`, `amount`, and where it happened: `merch_lat`, `merch_long`. |
-| `daily_category_spend` | **Continuous aggregate.** Spend per user per category per day, kept up to date by Tiger. Use it for "% of spend per category" and charts. |
+| `transactions` | **Hypertable.** Every purchase from everyone: `cc_num`, `ts`, `merchant`, `category`, `amount`, where it happened (`merch_lat`, `merch_long`) and `is_fraud` (true / false / NULL = unknown). |
+| `daily_category_spend` | **Continuous aggregate.** Spend per user per category per day, kept up to date by Tiger. Fraud rows are left out. Use it for "% of spend per category" and charts. |
 
 The 14 categories: `grocery_pos`, `grocery_net`, `food_dining`, `gas_transport`, `shopping_pos`, `shopping_net`, `home`, `kids_pets`, `entertainment`, `personal_care`, `health_fitness`, `travel`, `misc_pos`, `misc_net`.
 

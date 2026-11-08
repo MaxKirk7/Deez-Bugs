@@ -21,6 +21,7 @@ dependencies = [
 deez-bugs = "deez_bugs:main"
 tiger-check = "deez_bugs.db.check:main"
 tiger-load = "deez_bugs.db.load:main"
+runserver = "deez_bugs.api.server:main"
 
 [build-system]
 requires = ["uv_build>=0.12.16,<0.13.0"]

@@ -1,5 +1,15 @@
 # Deez-Bugs
 hack the burgh 2026
+## ▶️ Run it
+
+```bash
+./run.sh            # backend + frontend, opens http://localhost:5173 (Ctrl+C stops both)
+./run.sh backend    # backend only  → http://localhost:8000/docs
+./run.sh frontend   # frontend only → http://localhost:5173
+uv run runserver    # backend only, the Python way (uv run runserver 8001 for another port)
+```
+First time: `cp .env.example .env` and paste the real `DATABASE_URL` (ask privately). Needs `uv` and Node 20.19+ (`brew install uv node`).
+
 # Project Idea
 An AI-powered financial assistant that analyses a student's spending, predicts future expenses, identifies potential savings and autonomously researches cheaper alternatives.
 

@@ -9,10 +9,22 @@
  * Vite forwards /api/... to http://localhost:8000/... (see vite.config.ts).
  */
 import { agentScripts } from './mock/agentDemo'
-import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights, toCsv } from './mock/demoData'
+import { DEMO_FILENAME, DEMO_USER, demoPreview, demoRows, mockInsights, mockUnusual, toCsv } from './mock/demoData'
 import { CATEGORIES } from './lib/categories'
 import { placesFromRows } from './lib/places'
-import type { AgentResult, AgentStep, AssistantProfile, Category, Dashboard, Insights, Places, StatementRow, UploadResult } from './types'
+import type {
+  AgentResult,
+  AgentStep,
+  AssistantProfile,
+  Category,
+  Dashboard,
+  Insights,
+  Places,
+  StatementRow,
+  Unusual,
+  UnusualRow,
+  UploadResult,
+} from './types'
 
 const FORCE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -98,7 +110,7 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
 
   if (!live) {
     await wait(400)
-    return { ...base, mode: 'demo', insights: mockInsights(rows), places: placesFromRows(rows) }
+    return { ...base, mode: 'demo', insights: mockInsights(rows), places: placesFromRows(rows), unusual: mockUnusual(rows) }
   }
 
   // Alex is uploaded once, then re-used: no new copy in the database on every click.
@@ -120,13 +132,40 @@ export async function analyse(file: File | null, live: boolean): Promise<Dashboa
   return { ...base, mode: 'live', ...(await liveResults(uploaded.cc_num)) }
 }
 
-/** The real model's output + the map data for one user, fetched together. */
-async function liveResults(ccNum: number): Promise<{ insights: Insights; places: Places }> {
-  const [insights, places] = await Promise.all([
+/** The real model's output + the map data + the "Was this you?" check for one user, fetched together. */
+async function liveResults(ccNum: number): Promise<{ insights: Insights; places: Places; unusual: Unusual }> {
+  const [insights, places, unusual] = await Promise.all([
     getJson<Insights>(`/api/users/${ccNum}/insights`),
     getJson<Places>(`/api/users/${ccNum}/places`),
+    getJson<Unusual>(`/api/users/${ccNum}/unusual`),
   ])
-  return { insights, places }
+  return { insights, places, unusual }
+}
+
+/** Same purchase in the CSV and in the backend's answer? (minute + shop; the backend drops the "fraud_" prefix) */
+const purchaseKey = (ts: string, merchant: string) => `${ts.replace('T', ' ').slice(0, 16)}|${merchant.replace(/^fraud_/, '')}`
+
+/**
+ * The answer to "Was this you?" for one row. Returns the updated dashboard:
+ *   it was me → the row goes away (never asked again)
+ *   not me    → also removed from the spending: score, groups, map and calendar are refreshed
+ */
+export async function answerUnusual(data: Dashboard, row: UnusualRow, wasMe: boolean): Promise<Dashboard> {
+  const unusual = { ...data.unusual, rows: data.unusual.rows.filter((r) => r !== row) }
+  const gone = new Set(row.purchases.map((p) => purchaseKey(p.ts, p.merchant)))
+  const rows = wasMe ? data.rows : data.rows.filter((r) => !gone.has(purchaseKey(r.trans_date_trans_time, r.merchant)))
+
+  if (data.mode === 'demo') {
+    await wait(300)
+    return wasMe ? { ...data, unusual } : { ...data, rows, unusual, insights: mockInsights(rows), places: placesFromRows(rows) }
+  }
+  const ccNum = data.unusual.cc_num
+  await getJson(`/api/users/${ccNum}/unusual`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ was_me: wasMe, purchases: row.purchases.map(({ ts, merchant }) => ({ ts, merchant })) }),
+  })
+  return wasMe ? { ...data, unusual } : { ...data, rows, ...(await liveResults(ccNum)) }
 }
 
 /** "Delete my data": removes an uploaded user and all their transactions. */
@@ -150,7 +189,7 @@ export async function askAssistant(
   return result
 }
 
-const DEMO_ID_KEY = 'penny.demoCcNum.v2' // v2: Alex with locations
+const DEMO_ID_KEY = 'penny.demoCcNum.v3' // v3: Alex with purchases to check ("Was this you?")
 
 function readSavedDemoId(): number | null {
   try {

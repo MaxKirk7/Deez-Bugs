@@ -42,6 +42,28 @@ def group_into_areas(lat: np.ndarray, lon: np.ndarray, radius_km: float) -> np.n
     return labels
 
 
+def label_areas(located: pd.DataFrame) -> tuple[pd.DataFrame, float]:
+    """Add an "area" column to purchases with lat/long. Returns (purchases, area radius in km)."""
+    # Busiest shops first, so area centres land where people actually go most.
+    located = located.assign(n=located.groupby("merchant").merchant.transform("size"))
+    located = located.sort_values("n", ascending=False).reset_index(drop=True)
+    lat, lon = located["lat"].to_numpy(), located["long"].to_numpy()
+    radius = 0.3
+    labels = group_into_areas(lat, lon, radius)
+    while labels.max() + 1 > MAX_AREAS:
+        radius *= 2
+        labels = group_into_areas(lat, lon, radius)
+    return located.assign(area=labels), radius
+
+
+def usual_centres(located: pd.DataFrame, min_visits: int = 3) -> np.ndarray:
+    """Centres (lat, long) of the areas someone goes to at least min_visits times."""
+    if located.empty:
+        return np.empty((0, 2))
+    g = label_areas(located)[0].groupby("area")
+    return g[["lat", "long"]].mean()[g.size() >= min_visits].to_numpy()
+
+
 def user_places(cc_num: int) -> dict:
     """Home + spending areas for one user. Raises KeyError if the user doesn't exist."""
     with connect() as conn:
@@ -50,7 +72,7 @@ def user_places(cc_num: int) -> dict:
             raise KeyError(cc_num)
         rows = conn.execute(
             """SELECT merchant, category, amount::float, merch_lat, merch_long
-               FROM transactions WHERE cc_num = %s""", (cc_num,)).fetchall()
+               FROM transactions WHERE cc_num = %s AND is_fraud IS NOT TRUE""", (cc_num,)).fetchall()
 
     home_lat, home_lon, city = user
     home = None if home_lat is None or home_lon is None else {"lat": home_lat, "long": home_lon, "city": city}
@@ -59,17 +81,7 @@ def user_places(cc_num: int) -> dict:
 
     areas, radius = [], 0.0
     if len(located):
-        # Busiest shops first, so area centres land where people actually go most.
-        located = located.assign(n=located.groupby("merchant").merchant.transform("size"))
-        located = located.sort_values("n", ascending=False).reset_index(drop=True)
-        lat, lon = located["lat"].to_numpy(), located["long"].to_numpy()
-        radius = 0.3
-        labels = group_into_areas(lat, lon, radius)
-        while labels.max() + 1 > MAX_AREAS:
-            radius *= 2
-            labels = group_into_areas(lat, lon, radius)
-        located["area"] = labels
-
+        located, radius = label_areas(located)
         for area_id, g in located.groupby("area"):
             shops = g.groupby("merchant").agg(visits=("amount", "size"), spend=("amount", "sum"))
             shops = shops.sort_values("visits", ascending=False)

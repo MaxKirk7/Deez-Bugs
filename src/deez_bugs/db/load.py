@@ -4,9 +4,9 @@
     uv run tiger-load                    # create the tables (if needed) and load
     uv run tiger-load --replace --yes    # delete the reference users first, then load again
 
-Loads the 908 real users, each with their latest 12 months of purchases. Purchases the
-dataset marks as not made by the card owner are left out (91 cards have only those,
-so they disappear entirely).
+Loads the 908 real users, each with their latest 12 months of purchases, including the
+purchases the dataset marks as fraud (stored with is_fraud = true, about 4,000 rows; the
+spending stats leave them out). 91 cards have only fraud purchases: those are skipped.
 """
 
 import argparse
@@ -24,9 +24,11 @@ def read_reference_users() -> pd.DataFrame:
     if not all(f.exists() for f in RAW):
         raise SystemExit("data/raw/ is missing. Run: uv run python data/transaction.py")
     df = pd.concat((pd.read_csv(f, usecols=COLUMNS) for f in RAW), ignore_index=True)
-    df = df[df.is_fraud == 0]                                   # only the owner's own spending
     t = pd.to_datetime(df.trans_date_trans_time)
-    return df[t > t.groupby(df.cc_num).transform("max") - pd.DateOffset(months=12)]
+    genuine = df.is_fraud == 0
+    # Each user's 12 months end at their last genuine purchase. Fraud-only cards get NaT: dropped.
+    end = df.cc_num.map(t[genuine].groupby(df.cc_num[genuine]).max())
+    return df[(t > end - pd.DateOffset(months=12)) & (t <= end)]
 
 
 def main() -> None:
@@ -47,7 +49,7 @@ def main() -> None:
     print(f"   {len(df):,} purchases from {len(users)} users")
 
     print("3/4 Loading...")
-    rows = clean(df).assign(cc_num=df.cc_num)
+    rows = clean(df).assign(cc_num=df.cc_num, is_fraud=df.is_fraud == 1)
     with connect() as conn:
         existing = conn.execute("SELECT COUNT(*) FROM users WHERE source = 'reference'").fetchone()[0]
         if existing and not args.replace:

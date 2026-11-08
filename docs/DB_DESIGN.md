@@ -37,13 +37,14 @@ Each row is one card purchase with 23 columns:
 | **What we need** | `trans_date_trans_time` (when), `cc_num` (who), `merchant` (where), `category` (what kind), `amt` (how much, USD) |
 | Person details | `first`, `last`, `gender`, `dob`, `job`, `street`, `city`, `state`, `zip`, `lat`, `long`, `city_pop` |
 | Location (stored) | `city`, `state`, `lat`, `long` (home) and `merch_lat`, `merch_long` (where the purchase happened) |
-| Not useful to us | `trans_num`, `unix_time` (wrong year), `is_fraud`, an unnamed row number |
+| Fraud label (stored) | `is_fraud`: for the "Was this you?" check. Left out of all spending stats |
+| Not useful to us | `trans_num`, `unix_time` (wrong year), an unnamed row number |
 
 The 14 categories: `grocery_pos`, `grocery_net`, `food_dining`, `gas_transport`, `shopping_pos`, `shopping_net`, `home`, `kids_pets`, `entertainment`, `personal_care`, `health_fitness`, `travel`, `misc_pos`, `misc_net` (`_net` = online, `_pos` = in person).
 
 **Two things found in the data:**
 - **91 of the 999 cards are fake.** Every one of their purchases (6–19 each) is labelled as not made by the owner. That leaves **908 real users**.
-- Every other user also has a few of these purchases (0.5% of rows, but 4% of spending). We **leave them out** so each person's spending is real. We store no fraud label at all.
+- Every other user also has a few of these purchases (0.5% of rows, but 4% of spending). We store them with **`is_fraud = true`** (4,075 rows, 415 users) to train the "Was this you?" check. `daily_category_spend` and the map skip them, so each person's spending stats stay real.
 
 ---
 
@@ -78,6 +79,7 @@ users  1 ──── many  transactions
 | `category` | TEXT | `personal_care` |
 | `amount` | NUMERIC(10,2) | `2.86` (**positive = money spent**, as in the CSV) |
 | `merch_lat`, `merch_long` | DOUBLE PRECISION, nullable | `33.986391`, `-81.200714` (where the purchase happened; optional in uploads) |
+| `is_fraud` | BOOLEAN, nullable | `false`. **true** = made by someone else (dataset label, or the user said "not me"). **false** = the owner made it. **NULL** = not known yet (uploads start this way) |
 
 - **Hypertable** = Tiger splits it into monthly chunks automatically, so per-user and date-range queries stay fast. It's also what the "Best Use of Tiger Data" prize looks for.
 - One index: `(cc_num, ts)`. That's the only lookup we need: "get this user's transactions".
@@ -87,9 +89,9 @@ users  1 ──── many  transactions
 
 ### What gets loaded
 
-**908 users × their latest 12 months ≈ 924,000 rows**, about 200 MB. The latest 12 months is plenty for spending habits, and halves the size compared with loading all 2 years.
+**908 users × their latest 12 months ≈ 928,000 rows** (4,075 of them fraud), about 200 MB. The latest 12 months is plenty for spending habits, and halves the size compared with loading all 2 years.
 
-**Not stored:** names, gender (fairness), street, zip, job, city_pop, `trans_num`, `unix_time`, the fraud label. (Location **is** stored: home city/state/lat/long and the merchant's lat/long, for maps and routes.) They aren't needed for categories, scores or ML. Anything can be added later from the CSV if it turns out we need it.
+**Not stored:** names, gender (fairness), street, zip, job, city_pop, `trans_num`, `unix_time`. (Location **is** stored: home city/state/lat/long and the merchant's lat/long, for maps and routes.) They aren't needed for categories, scores or ML. Anything can be added later from the CSV if it turns out we need it.
 
 ---
 

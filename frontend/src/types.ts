@@ -6,6 +6,8 @@
  *   GET  /users/{cc_num}/insights    → Insights
  *   GET  /users/{cc_num}/categories  → UserCategories
  *   GET  /users/{cc_num}/places      → Places (the map)
+ *   GET  /users/{cc_num}/unusual     → Unusual ("Was this you?")
+ *   POST /users/{cc_num}/unusual     ← UnusualAnswer
  *
  * Part 2 is the PLACEHOLDER preview (forecast, subscriptions, savings agent).
  * Not built in the backend yet: the UI always shows it with a PLACEHOLDER tag.
@@ -99,6 +101,34 @@ export interface Places {
   online_purchases: number // no location (online shops, apps)
 }
 
+/** One purchase on the "Unusual transactions" card. ts is ISO, e.g. "2026-10-17T01:31:00+00:00". */
+export interface UnusualPurchase {
+  ts: string
+  merchant: string
+  category: Category
+  amount: number
+  score: number // 0..1 from the model
+}
+
+/** One thing to check: a single purchase, or a burst of 3+ unusual ones within 48 h. */
+export interface UnusualRow {
+  kind: 'single' | 'burst'
+  start: string
+  end: string
+  total: number
+  top_score: number
+  purchases: UnusualPurchase[]
+  reasons: { kind: string; text: string }[] // 1–3 "why we're asking" chips
+}
+
+/** GET /users/{cc_num}/unusual */
+export interface Unusual {
+  cc_num: number
+  checked: number // purchases looked at
+  too_few: boolean // fewer than 20 purchases: not checked
+  rows: UnusualRow[]
+}
+
 /** GET /users/{cc_num}/categories */
 export interface UserCategories {
   cc_num: number
@@ -180,6 +210,7 @@ export interface Dashboard {
   rows: StatementRow[] // the statement itself (read in the browser), for the heatmap
   insights: Insights
   places: Places // the map: real from the backend in live mode, built from the statement in demo mode
+  unusual: Unusual // "Was this you?": real model in live mode, ready-made in demo mode
   preview: Preview // always PLACEHOLDER
 }
 

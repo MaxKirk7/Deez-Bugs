@@ -1,3 +1,7 @@
+from contextlib import asynccontextmanager
+from datetime import datetime
+import threading
+
 from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field
@@ -9,7 +13,7 @@ import uvicorn
 from dotenv import load_dotenv
 
 # Shared DB code: reads DATABASE_URL from .env. See src/deez_bugs/db/.
-from deez_bugs.db import UPLOAD_COLUMNS, category_shares, delete_upload, save_upload
+from deez_bugs.db import UPLOAD_COLUMNS, answer_purchases, category_shares, delete_upload, save_upload
 from deez_bugs.db.places import user_places
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
@@ -155,9 +159,54 @@ def user_insights(cc_num: int):
         raise HTTPException(status_code=404, detail=f"No transactions for cc_num {cc_num}")
 
 
+class Purchase(BaseModel):
+    ts: datetime
+    merchant: str = Field(max_length=200)
+
+
+class UnusualAnswer(BaseModel):
+    was_me: bool
+    purchases: list[Purchase] = Field(min_length=1, max_length=200)
+
+
+@router.get("/users/{cc_num}/unusual")
+def user_unusual(cc_num: int):
+    """Unusual transactions ("Was this you?"): purchases that don't look like this person, with reasons."""
+    from deez_bugs.fraud.model import get_unusual_model     # trains on first call (~25 s), then cached
+    try:
+        return get_unusual_model().check(cc_num)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"No user with cc_num {cc_num}")
+
+
+@router.post("/users/{cc_num}/unusual")
+def answer_unusual(cc_num: int, answer: UnusualAnswer):
+    """The answer to "Was this you?". Not me = removed from their spending stats. Uploaded users only."""
+    updated = answer_purchases(cc_num, [p.model_dump() for p in answer.purchases], answer.was_me)
+    if updated is None:
+        raise HTTPException(status_code=404, detail=f"No uploaded user with cc_num {cc_num}")
+    return {"cc_num": cc_num, "updated": updated}
+
+
+def _warm_up_models() -> None:
+    """Train both models when the server starts, so the first user doesn't wait."""
+    try:
+        from deez_bugs.fraud.model import get_unusual_model
+        get_unusual_model()          # also trains the spending model (it uses its KNN)
+        print("Models ready.", flush=True)
+    except Exception as e:           # e.g. database offline: they train on the first request instead
+        print(f"Model warm-up skipped: {e}", flush=True)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    threading.Thread(target=_warm_up_models, daemon=True).start()
+    yield
+
+
 # Create the app AFTER the routes above are defined: include_router copies the
 # routes that exist at that moment.
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 app.include_router(router)
 
 if __name__ == "__main__":
