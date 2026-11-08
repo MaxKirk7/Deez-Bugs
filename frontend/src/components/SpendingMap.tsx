@@ -37,6 +37,7 @@ const km = (n: number) => (n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(n 
 const radius = (visits: number) => Math.min(9 + Math.sqrt(visits) * 3, 34)
 const areaName = (a: Area) => a.shops[0].merchant + (a.shops.length > 1 ? ` +${a.shops.length - 1}` : '')
 const formatCoordinate = (value: number) => value.toFixed(5)
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 const distanceBetween = (a: SavedPin, b: SavedPin) => {
   const radians = (value: number) => (value * Math.PI) / 180
   const latitude = radians(b.lat - a.lat)
@@ -74,12 +75,7 @@ async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal): Promise<Nea
 function readPin(): SavedPin | null {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(PINS_KEY) ?? 'null')
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      typeof value.lat === 'number' &&
-      typeof value.long === 'number'
-    ) {
+    if (isRecord(value) && typeof value.lat === 'number' && typeof value.long === 'number') {
       return { lat: value.lat, long: value.long }
     }
     return null
@@ -112,6 +108,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
   const [pin, setPin] = useState<SavedPin | null>(readPin)
   const [nearby, setNearby] = useState<NearbyPlace[]>([])
   const [nearbyStatus, setNearbyStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [nearbyVisible, setNearbyVisible] = useState(false)
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -143,6 +140,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
       setPin({ lat: event.latlng.lat, long: event.latlng.lng })
       setNearby([])
       setNearbyStatus('idle')
+      setNearbyVisible(false)
     })
     layer.current = L.layerGroup().addTo(m)
     map.current = m
@@ -161,17 +159,27 @@ export function SpendingMap({ data }: { data: Dashboard }) {
     }
   }, [pin])
 
-  const searchNearby = async () => {
+  useEffect(() => {
     if (!pin) return
-    setNearbyStatus('loading')
     const controller = new AbortController()
-    try {
-      setNearby(await findNearbyPlaces(pin, controller.signal))
-      setNearbyStatus('ready')
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      setNearbyStatus('error')
-    }
+    setNearbyStatus('loading')
+    findNearbyPlaces(pin, controller.signal)
+      .then((places) => {
+        if (!controller.signal.aborted) {
+          setNearby(places)
+          setNearbyStatus('ready')
+        }
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted && !(error instanceof DOMException && error.name === 'AbortError')) {
+          setNearbyStatus('error')
+        }
+      })
+    return () => controller.abort()
+  }, [pin])
+
+  const toggleNearby = () => {
+    setNearbyVisible((visible) => !visible)
   }
 
   // Fetch the road route when a circle is picked (once per area).
@@ -275,33 +283,36 @@ export function SpendingMap({ data }: { data: Dashboard }) {
             Saved pin: {formatCoordinate(pin.lat)}, {formatCoordinate(pin.long)}
           </p>
         )}
-        <div className="mb-4">
-          <button
-            type="button"
-            disabled={!pin || nearbyStatus === 'loading'}
-            onClick={searchNearby}
-            className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {nearbyStatus === 'loading' ? 'Searching nearby…' : `Find nearby places (${SEARCH_RADIUS_KM} km)`}
-          </button>
-          {nearbyStatus === 'error' && <p className="mt-2 text-sm text-critical">Could not load nearby places. Please try again.</p>}
-        </div>
-        {nearbyStatus === 'ready' && (
+        {pin && (
           <div className="mb-4">
-            <p className="mb-2 text-sm font-semibold text-ink">
-              Nearby places {nearby.length === 0 ? '(none found)' : `(${nearby.length})`}
-            </p>
-            <div className="space-y-2">
-              {nearby.map((place) => (
-                <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-ink">{place.name}</p>
-                    <p className="text-xs text-muted">{place.category}</p>
-                  </div>
-                  <span className="shrink-0 text-xs tabular text-muted">{place.distance.toFixed(2)} km</span>
-                </div>
-              ))}
+            <div className="mb-2 flex items-center gap-2">
+              <p className="text-sm font-semibold text-ink">
+                Nearby places {nearbyStatus === 'ready' ? (nearby.length === 0 ? '(none found)' : `(${nearby.length})`) : '(loading…)'}
+              </p>
+              <button
+                type="button"
+                disabled={nearbyStatus !== 'ready'}
+                aria-label={nearbyVisible ? 'Hide nearby places' : 'Show nearby places'}
+                onClick={toggleNearby}
+                className="text-lg font-semibold leading-none text-muted hover:text-ink"
+              >
+                {nearbyVisible ? 'v' : '>'}
+              </button>
             </div>
+            {nearbyVisible && (
+              <div className="space-y-2">
+                {nearby.map((place) => (
+                  <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-ink">{place.name}</p>
+                      <p className="text-xs text-muted">{place.category}</p>
+                    </div>
+                    <span className="shrink-0 text-xs tabular text-muted">{place.distance.toFixed(2)} km</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {nearbyStatus === 'error' && <p className="text-sm text-critical">Could not load nearby places.</p>}
           </div>
         )}
         {places.areas.length > 0 && (
