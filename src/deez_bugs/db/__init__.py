@@ -26,6 +26,8 @@ CATEGORIES = [
 UPLOAD_COLUMNS = ["trans_date_trans_time", "merchant", "category", "amt"]
 # Optional: where each purchase happened. Stored if present, left empty if not.
 OPTIONAL_COLUMNS = ["merch_lat", "merch_long"]
+# Optional: where the person lives (same on every row, as in the dataset). Needed for the map's routes.
+HOME_COLUMNS = ["lat", "long", "city", "state"]
 
 
 def connect(autocommit: bool = False) -> psycopg.Connection:
@@ -85,13 +87,38 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     return out[out.amount > 0]              # spending only
 
 
+def home_from_csv(df: pd.DataFrame) -> dict:
+    """The uploader's home from optional lat/long/city/state columns (first filled-in value of each)."""
+    def first(col):
+        if col not in df.columns:
+            return None
+        values = df[col].dropna()
+        return values.iloc[0] if len(values) else None
+
+    lat, lon = first("lat"), first("long")
+    lat, lon = pd.to_numeric(lat, errors="coerce"), pd.to_numeric(lon, errors="coerce")
+    valid = pd.notna(lat) and pd.notna(lon) and -90 <= lat <= 90 and -180 <= lon <= 180
+    city, state = first("city"), first("state")
+    return {
+        "lat": float(lat) if valid else None,
+        "long": float(lon) if valid else None,
+        "city": None if city is None else str(city),
+        "state": None if state is None else str(state),
+    }
+
+
 def save_upload(df: pd.DataFrame) -> dict:
     """Store an uploaded statement as a new user. Returns {"cc_num": ..., "rows": ...}."""
     rows = clean(df)
     if rows.empty:
         raise ValueError("No spending rows found in the CSV.")
+    home = home_from_csv(df)
     with connect() as conn:
-        cc_num = conn.execute("INSERT INTO users (source) VALUES ('upload') RETURNING cc_num").fetchone()[0]
+        cc_num = conn.execute(
+            """INSERT INTO users (source, lat, long, city, state)
+               VALUES ('upload', %s, %s, %s, %s) RETURNING cc_num""",
+            (home["lat"], home["long"], home["city"], home["state"]),
+        ).fetchone()[0]
         copy_transactions(conn, rows.assign(cc_num=cc_num))
     refresh_spend(rows.ts.min().floor("D"), rows.ts.max().floor("D") + pd.Timedelta(days=1))
     return {"cc_num": cc_num, "rows": len(rows)}

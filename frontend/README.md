@@ -21,7 +21,7 @@ npm run dev      # → http://localhost:5173
 |---|---|---|
 | Hero: "You spend like the … crowd" + score /100 | k-means group, score | **Real model** |
 | Guess your mix (quiz) | your % per category vs people like you | **Real model** |
-| *(empty slot next to the quiz)* | reserved for a new feature (`NewFeatureSlot.tsx`) | **PLACEHOLDER** |
+| Where you spend (map) | your purchases grouped into areas: circle size = visits, colour = money spent, dashed lines + km from home, click → real road route (OSRM) | **Real data** (`GET /users/{id}/places`) |
 | Spending calendar (heatmap) | daily spend | **Your statement** (read in the browser) |
 | Pick one thing to change | recommendations (collaborative filtering), one goal saved in this browser | **Real model** |
 | Coming next: forecast, subscriptions, savings agent | Alex's made-up numbers | **PLACEHOLDER** (not in the backend yet) |
@@ -52,6 +52,8 @@ cd frontend && npm run dev
 - The first model call trains the model (10–40 s). The app starts that warm-up as soon as the upload page loads.
 - **"Try it with Alex"** uploads Alex's statement to the real database **once**; the browser remembers Alex's `cc_num` and re-uses it on later clicks (uploads again only if that user was deleted).
 - Uploads must have the backend's 4 columns: `trans_date_trans_time, merchant, category, amt`, and one of its 14 categories.
+- Optional for the map: `merch_lat, merch_long` (where each purchase happened) and `lat, long, city` (home, used for the routes). Without them the map shows an empty state.
+- Road routes come from the free OSRM demo server (`router.project-osrm.org`, car profile; walking time is estimated at 5 km/h). Needs internet.
 - `VITE_USE_MOCK=true` in `frontend/.env` forces demo mode.
 
 ## For the backend team
@@ -62,6 +64,7 @@ cd frontend && npm run dev
 |---|---|
 | `POST /upload-csv/` | Upload the statement → `cc_num` |
 | `GET /users/{cc_num}/insights` | Hero, quiz, goals |
+| `GET /users/{cc_num}/places` | The map: home + spending areas |
 | `DELETE /users/{cc_num}` | "Delete my data" for an uploaded user (`deleteUpload()` in `api.ts`) |
 
 
