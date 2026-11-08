@@ -48,7 +48,7 @@ const distanceBetween = (a: SavedPin, b: SavedPin) => {
 }
 
 async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal, limit: number): Promise<NearbyPlace[]> {
-  const query = `[out:json][timeout:20];(nwr["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags ${limit};`
+  const query = `[out:json][timeout:20];(nwr["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags;`
   const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal })
   if (!response.ok) throw new Error('Nearby place search is unavailable right now.')
   const body: { elements?: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: { name?: string; amenity?: string; shop?: string } }[] } =
@@ -70,7 +70,7 @@ async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal, limit: numbe
     })
     .filter((place): place is NearbyPlace => place !== null)
     .sort((a, b) => a.distance - b.distance)
-    .slice(0, 20)
+    .slice(0, limit)
 }
 
 function readPin(): SavedPin | null {
@@ -171,6 +171,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
         if (controller.signal.aborted) return
         setNearby(firstPlaces)
         setNearbyStatus('ready')
+        setNearbyVisible(true)
         const allPlaces = await findNearbyPlaces(pin, controller.signal, 20)
         if (!controller.signal.aborted) setNearby(allPlaces)
       })
