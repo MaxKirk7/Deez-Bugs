@@ -21,7 +21,7 @@ const SCALE = ['#c9dcef', '#93bde3', '#5c9bd5', '#2f6fb5', '#22357e'] // light â
 const LINE = '#22357e'
 const ROUTE = '#e8590c'
 const WALK_KMH = 5
-const SEARCH_RADIUS_KM = 2.5
+const SEARCH_RADIUS_KM = 5
 const INITIAL_PLACES = 5
 
 type RouteState =
@@ -48,7 +48,7 @@ const distanceBetween = (a: SavedPin, b: SavedPin) => {
 }
 
 async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal, limit: number): Promise<NearbyPlace[]> {
-  const query = `[out:json][timeout:20];(nwr["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags;`
+  const query = `[out:json][timeout:10];(nwr["name"]["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["name"]["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags qt;`
   const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal })
   if (!response.ok) throw new Error('Nearby place search is unavailable right now.')
   const body: { elements?: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: { name?: string; amenity?: string; shop?: string } }[] } =
@@ -167,13 +167,18 @@ export function SpendingMap({ data }: { data: Dashboard }) {
     const controller = new AbortController()
     setNearbyStatus('loading')
     findNearbyPlaces(pin, controller.signal, INITIAL_PLACES)
-      .then(async (firstPlaces) => {
+      .then((foundPlaces) => {
         if (controller.signal.aborted) return
-        setNearby(firstPlaces)
+        setNearby(foundPlaces)
         setNearbyStatus('ready')
         setNearbyVisible(true)
-        const allPlaces = await findNearbyPlaces(pin, controller.signal, 20)
-        if (!controller.signal.aborted) setNearby(allPlaces)
+        findNearbyPlaces(pin, controller.signal, 20)
+          .then((allPlaces) => {
+            if (!controller.signal.aborted) setNearby(allPlaces)
+          })
+          .catch(() => {
+            // Keep the initial five usable if the optional expansion is unavailable.
+          })
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted && !(error instanceof DOMException && error.name === 'AbortError')) {
