@@ -30,7 +30,7 @@ type RouteState =
   | { status: 'error' }
 
 type SavedPin = { lat: number; long: number }
-type NearbyPlace = { id: string; name: string; category: string; lat: number; long: number; distance: number }
+type NearbyPlace = { id: string; name: string; category: string; distance: number; visits: number; spend: number }
 
 const PINS_KEY = 'penny.mapPin.v1'
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
@@ -47,30 +47,22 @@ const distanceBetween = (a: SavedPin, b: SavedPin) => {
   return 2 * 6371 * Math.asin(Math.sqrt(haversine))
 }
 
-async function findNearbyPlaces(pin: SavedPin, signal: AbortSignal, limit: number): Promise<NearbyPlace[]> {
-  const query = `[out:json][timeout:10];(nwr["name"]["amenity"~"restaurant|bar|pub|nightclub"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long});nwr["name"]["shop"~"supermarket|grocery|convenience"](around:${SEARCH_RADIUS_KM * 1000},${pin.lat},${pin.long}););out center tags qt;`
-  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal })
-  if (!response.ok) throw new Error('Nearby place search is unavailable right now.')
-  const body: { elements?: { id: number; type: string; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: { name?: string; amenity?: string; shop?: string } }[] } =
-    await response.json()
-  return (body.elements ?? [])
-    .map((element) => {
-      const lat = element.lat ?? element.center?.lat
-      const long = element.lon ?? element.center?.lon
-      const rawCategory = element.tags?.amenity ?? element.tags?.shop ?? 'place'
-      if (!element.tags?.name || lat == null || long == null) return null
-      return {
-        id: `${element.type}-${element.id}`,
-        name: element.tags.name,
-        category: rawCategory === 'supermarket' || rawCategory === 'grocery' || rawCategory === 'convenience' ? 'Grocery' : rawCategory[0].toUpperCase() + rawCategory.slice(1),
-        lat,
-        long,
-        distance: distanceBetween(pin, { lat, long }),
-      }
-    })
-    .filter((place): place is NearbyPlace => place !== null)
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, limit)
+/** Shops the user has bought from near the pin, closest first: from their own map areas, so it's instant. */
+function placesNear(pin: SavedPin, areas: Area[]): NearbyPlace[] {
+  return areas
+    .map((a) => ({ a, distance: distanceBetween(pin, { lat: a.lat, long: a.long }) }))
+    .filter(({ distance }) => distance <= SEARCH_RADIUS_KM)
+    .flatMap(({ a, distance }) =>
+      a.shops.map((shop) => ({
+        id: `${a.id}-${shop.merchant}`,
+        name: shop.merchant,
+        category: CATEGORY[a.top_category].label,
+        distance,
+        visits: shop.visits,
+        spend: shop.spend,
+      })),
+    )
+    .sort((x, y) => x.distance - y.distance || y.visits - x.visits)
 }
 
 function readPin(): SavedPin | null {
@@ -107,9 +99,8 @@ export function SpendingMap({ data }: { data: Dashboard }) {
   const [selected, setSelected] = useState<number | null>(null)
   const [routes, setRoutes] = useState<Record<number, RouteState>>({})
   const [pin, setPin] = useState<SavedPin | null>(readPin)
-  const [nearby, setNearby] = useState<NearbyPlace[]>([])
-  const [nearbyStatus, setNearbyStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const [nearbyVisible, setNearbyVisible] = useState(false)
+  const nearby = useMemo(() => (pin ? placesNear(pin, places.areas) : []), [pin, places])
+  const [nearbyVisible, setNearbyVisible] = useState(true)
   const [nearbyExpanded, setNearbyExpanded] = useState(false)
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
@@ -145,9 +136,7 @@ export function SpendingMap({ data }: { data: Dashboard }) {
     m.on('click', (event) => {
       setSelected(null)
       setPin({ lat: event.latlng.lat, long: event.latlng.lng })
-      setNearby([])
-      setNearbyStatus('idle')
-      setNearbyVisible(false)
+      setNearbyVisible(true)
       setNearbyExpanded(false)
     })
     layer.current = L.layerGroup().addTo(m)
@@ -165,32 +154,6 @@ export function SpendingMap({ data }: { data: Dashboard }) {
     } catch {
       // Persistence is best effort when browser storage is unavailable.
     }
-  }, [pin])
-
-  useEffect(() => {
-    if (!pin) return
-    const controller = new AbortController()
-    setNearbyStatus('loading')
-    findNearbyPlaces(pin, controller.signal, INITIAL_PLACES)
-      .then((foundPlaces) => {
-        if (controller.signal.aborted) return
-        setNearby(foundPlaces)
-        setNearbyStatus('ready')
-        setNearbyVisible(true)
-        findNearbyPlaces(pin, controller.signal, 20)
-          .then((allPlaces) => {
-            if (!controller.signal.aborted) setNearby(allPlaces)
-          })
-          .catch(() => {
-            // Keep the initial five usable if the optional expansion is unavailable.
-          })
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted && !(error instanceof DOMException && error.name === 'AbortError')) {
-          setNearbyStatus('error')
-        }
-      })
-    return () => controller.abort()
   }, [pin])
 
   const toggleNearby = () => {
@@ -302,9 +265,6 @@ export function SpendingMap({ data }: { data: Dashboard }) {
               type="button"
               onClick={() => {
                 setPin(null)
-                setNearby([])
-                setNearbyStatus('idle')
-                setNearbyVisible(false)
                 setNearbyExpanded(false)
               }}
               className="shrink-0 text-xs font-medium text-critical hover:underline"
@@ -317,22 +277,10 @@ export function SpendingMap({ data }: { data: Dashboard }) {
           <div className="mb-4">
             <div className="mb-2 flex items-center gap-2">
               <p className="text-sm font-semibold text-ink">
-                Places near this pin{' '}
-                {nearbyStatus === 'loading' ? (
-                  <span className="nearby-loading">[Loading…]</span>
-                ) : nearbyStatus === 'ready' ? (
-                  nearby.length === 0 ? (
-                    '(none found)'
-                  ) : (
-                    `(${nearby.length})`
-                  )
-                ) : (
-                  ''
-                )}
+                Your places near this pin {nearby.length === 0 ? `(none within ${SEARCH_RADIUS_KM} km)` : `(${nearby.length})`}
               </p>
               <button
                 type="button"
-                disabled={nearbyStatus !== 'ready'}
                 aria-label={nearbyVisible ? 'Hide nearby places' : 'Show nearby places'}
                 onClick={toggleNearby}
                 className="text-lg font-semibold leading-none text-muted hover:text-ink"
@@ -346,9 +294,11 @@ export function SpendingMap({ data }: { data: Dashboard }) {
                   <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-ink">{place.name}</p>
-                      <p className="text-xs text-muted">{place.category}</p>
+                      <p className="text-xs text-muted">
+                        {place.category} · {place.visits} visit{place.visits === 1 ? '' : 's'} · {money(place.spend, currency)}
+                      </p>
                     </div>
-                    <span className="shrink-0 text-xs tabular text-muted">{place.distance.toFixed(2)} km</span>
+                    <span className="shrink-0 text-xs tabular text-muted">{km(place.distance)}</span>
                   </div>
                 ))}
                 {!nearbyExpanded && nearby.length > INITIAL_PLACES && (
@@ -362,7 +312,6 @@ export function SpendingMap({ data }: { data: Dashboard }) {
                 )}
               </div>
             )}
-            {nearbyStatus === 'error' && <p className="text-sm text-critical">Could not load nearby places.</p>}
           </div>
         )}
         {places.areas.length > 0 && (
