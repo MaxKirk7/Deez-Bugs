@@ -76,7 +76,7 @@ export function AssistantScreen({
           setSummary(
             (result.summary || result.answer)
               .split('\n')
-              .map((point) => point.replace(/^[-*]\s*/, '').trim())
+              .map((point) => point.replace(/\*\*/g, '').replace(/^[-*]\s*/, '').trim())
               .filter(Boolean),
           )
           if (!muted) {
