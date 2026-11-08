@@ -2,36 +2,36 @@
 
 /* ───────────────────────── Design tokens ─────────────────────────
    Every colour in the app comes from here. Dark ("Glacier Lake") is the default;
-   the toggle switches to "Editorial" (the :root / data-theme="light" values). */
+   the toggle switches to "Editorial", a white theme (the :root / data-theme="light" values). */
 :root {
-  /* "Editorial": the theme the sun/moon toggle switches to. Charcoal paper, warm off-white ink,
-     serif headlines, mono labels, a single teal accent, salmon for things that need you. */
-  color-scheme: dark;
-  --bg: #111315;
+  /* "Editorial" (the sun/moon toggle): white paper, near-black ink, serif headlines,
+     mono labels, a single teal accent, salmon for things that need you. */
+  color-scheme: light;
+  --bg: #ffffff;
   --surface: transparent;
-  --surface-solid: #16191b;
-  --surface-2: rgba(236, 235, 230, 0.045);
-  --ink: #ecebe6;
-  --ink-2: #b8b6af;
-  --muted: #84837d;
-  --grid: #24272a;
-  --axis: #34383b;
-  --line: rgba(236, 235, 230, 0.1);
-  --violet: #79c2b6;
-  --brand: #79c2b6;
-  --brand-strong: #a6dad1;
-  --brand-soft: rgba(121, 194, 182, 0.1);
-  --on-brand: #101314;
-  --compare: #5d5f5c;
-  --good: #79c4a3;
-  --good-text: #8fd3b2;
-  --good-soft: rgba(121, 196, 163, 0.1);
-  --warning: #e0907d;
-  --warning-text: #e8a594;
-  --warning-soft: rgba(224, 144, 125, 0.1);
-  --critical: #e0907d;
-  --critical-text: #eba08f;
-  --critical-soft: rgba(224, 144, 125, 0.1);
+  --surface-solid: #ffffff;
+  --surface-2: rgba(17, 19, 21, 0.045);
+  --ink: #15181a;
+  --ink-2: #4a4f52;
+  --muted: #7a7f82;
+  --grid: #e6e8e8;
+  --axis: #cfd3d3;
+  --line: rgba(17, 19, 21, 0.12);
+  --violet: #2f8f84;
+  --brand: #2f8f84;
+  --brand-strong: #1f6b63;
+  --brand-soft: rgba(47, 143, 132, 0.1);
+  --on-brand: #ffffff;
+  --compare: #b9bdbd;
+  --good: #2f9a6c;
+  --good-text: #1f7a52;
+  --good-soft: rgba(47, 154, 108, 0.1);
+  --warning: #c8664f;
+  --warning-text: #b0503a;
+  --warning-soft: rgba(200, 102, 79, 0.1);
+  --critical: #c8664f;
+  --critical-text: #b0503a;
+  --critical-soft: rgba(200, 102, 79, 0.1);
   --shadow: none;
   --glow: transparent;
 }
@@ -382,9 +382,9 @@ html {
 :root[data-theme="light"] .shadow-md {
   box-shadow: none !important;
 }
-/* Map: greyscale dark tiles under the teal circles */
+/* Map: light greyscale tiles under the teal circles */
 :root[data-theme="light"] .spend-map .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) grayscale(1) brightness(1.2) contrast(0.8);
+  filter: grayscale(1) brightness(1.05) contrast(0.9);
 }
 :root[data-theme="light"] .spend-map,
 :root[data-theme="light"] .spend-map .leaflet-container {

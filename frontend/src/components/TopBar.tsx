@@ -37,11 +37,6 @@ export function TopBar({
           ))}
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          <span className="hidden 2xl:inline-flex">
-
-            <ModePill live={data.mode === 'live'} />
-
-          </span>
           <button
             type="button"
             onClick={(e) => {

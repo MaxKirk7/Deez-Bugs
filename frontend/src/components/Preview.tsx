@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { Preview as PreviewData } from '../types'
 import { SavingsAgent } from './SavingsAgent'
 import { Subscriptions } from './Subscriptions'
-import { SourceTag } from './ui'
 
 const TABS = [
   { id: 'subs', label: 'Subscriptions' },
@@ -20,11 +19,10 @@ export function Preview({ data }: { data: PreviewData }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 id="preview-title" className="text-lg font-semibold tracking-tight text-ink">
-            Coming next
+            Ways to save
           </h2>
-          <p className="text-sm text-muted">Not built in the backend yet. Shown with Alex’s demo numbers.</p>
+          <p className="text-sm text-muted">Your subscriptions, and an agent that finds you cheaper options.</p>
         </div>
-        <SourceTag kind="placeholder">Placeholder · dummy data</SourceTag>
       </div>
       <div role="tablist" className="glass inline-flex rounded-full border border-line p-1">
         {TABS.map((t) => (
@@ -41,7 +39,7 @@ export function Preview({ data }: { data: PreviewData }) {
           </button>
         ))}
       </div>
-      <div role="tabpanel" className="opacity-90">
+      <div role="tabpanel">
         {tab === 'subs' && <Subscriptions subscriptions={data.subscriptions} />}
         {tab === 'agent' && <SavingsAgent savings={data.savings} />}
       </div>

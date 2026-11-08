@@ -2,7 +2,7 @@
 import { motion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useCountUp } from '../lib/useCountUp'
-import { FlaskConical, Radio, type LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 export function Card({
   children,
@@ -93,16 +93,8 @@ export function CountUp({ value, format }: { value: number; format: (n: number) 
  *  live        = the real model / real statement
  *  placeholder = made-up demo values (not built yet, or backend offline)
  */
-export function SourceTag({ kind, children }: { kind: 'live' | 'placeholder'; children?: ReactNode }) {
-  return kind === 'live' ? (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-good/30 bg-good-soft px-2.5 py-1 text-[11px] font-medium text-good-text">
-      <Radio className="size-3" aria-hidden />
-      {children ?? 'Real data'}
-    </span>
-  ) : (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-warning/60 bg-warning-soft px-2.5 py-1 font-mono text-[10.5px] font-medium tracking-wide text-warning-text uppercase">
-      <FlaskConical className="size-3" aria-hidden />
-      {children ?? 'Placeholder'}
-    </span>
-  )
+export function SourceTag(_props: { kind: 'live' | 'placeholder'; children?: ReactNode }) {
+  // Hidden on purpose: the "Real data" / "Placeholder" labels were extra text on every card.
+  // Kept as a component so the places that use it don't need changing.
+  return null
 }
