@@ -84,8 +84,8 @@ function NavLink({ active, onClick, count, children }: { active: boolean; onClic
       type="button"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${
-        active ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'
+      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${
+        active ? 'border-ink bg-ink text-bg' : 'border-ink/25 text-ink hover:border-ink/60'
       }`}
     >
       {children}

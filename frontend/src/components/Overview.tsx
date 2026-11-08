@@ -1,17 +1,18 @@
 import { motion } from 'motion/react'
-import { ArrowRight, Target } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
-import { groupName, money, pct } from '../lib/format'
+import { ArrowRight, PiggyBank, TrendingDown } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { CATEGORY } from '../lib/categories'
+import { money, pct } from '../lib/format'
 import type { forecastFromRows } from '../lib/forecast'
 import type { PageId } from '../lib/pages'
-import type { Dashboard } from '../types'
-import { ScoreRing } from './Hero'
+import type { Category, Dashboard } from '../types'
 import { SpendingMap } from './SpendingMap'
-import { Card, IconTile, SourceTag } from './ui'
+import { ScoreRing } from './Hero'
+import { Card, SourceTag } from './ui'
 
 /**
  * HOME: the one-screen summary. Everything here links to its own page for the detail.
- *   headline + the one thing to change (with a what-if) · score · map · explore tiles
+ *   left: you could save up to £X + biggest expense · right: Penny score · map · explore tiles
  */
 export function Overview({
   data,
@@ -23,12 +24,23 @@ export function Overview({
   onNavigate: (page: PageId) => void
 }) {
   const { insights, user, mode, currency, rows } = data
-  const rec = insights.recommendations[0]
   const top = insights.categories[0]
-  // What if: cut the biggest-win category by this much → real money per month
-  const [cut, setCut] = useState(20)
-  const recMonthly = rec ? insights.monthly_spend * rec.your_share : 0
-  const whatIf = (recMonthly * cut) / 100
+
+  // "You could save up to £X with Penny": the model's recommendations, added up
+  const saveMonthly = insights.recommendations.reduce((s, r) => s + r.est_monthly_saving, 0)
+
+  // "Your biggest expense this month": the category with the most money in the statement's latest month
+  const month = rows.reduce((m, r) => (r.trans_date_trans_time.slice(0, 7) > m ? r.trans_date_trans_time.slice(0, 7) : m), '')
+  const inMonth = rows.filter((r) => r.trans_date_trans_time.startsWith(month))
+  const monthTotal = inMonth.reduce((s, r) => s + r.amt, 0) || 1
+  const byCat = new Map<Category, number>()
+  for (const r of inMonth) byCat.set(r.category, (byCat.get(r.category) ?? 0) + r.amt)
+  const [bigCat, bigAmount] = [...byCat.entries()].sort((a, b) => b[1] - a[1])[0] ?? [null, 0]
+  const bigShops = new Map<string, number>()
+  for (const r of inMonth) if (r.category === bigCat) bigShops.set(r.merchant, (bigShops.get(r.merchant) ?? 0) + r.amt)
+  const [bigShop] = [...bigShops.entries()].sort((a, b) => b[1] - a[1])[0] ?? [null]
+  const vsPeople = bigCat ? insights.categories.find((c) => c.category === bigCat) : undefined
+  const monthLabel = month ? new Date(month + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' }) : 'this month'
 
   // Explore tiles: one real number from each page
   const weekend = rows.filter((r) => [0, 5, 6].includes(new Date(r.trans_date_trans_time.slice(0, 10) + 'T00:00:00Z').getUTCDay()))
@@ -37,104 +49,95 @@ export function Overview({
 
   return (
     <div className="space-y-5">
-      <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="pt-8 sm:pt-12">
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-muted">Hi {user.name}</p>
-          <SourceTag kind={mode === 'live' ? 'live' : 'placeholder'}>{mode === 'live' ? 'Live model output' : 'Placeholder · backend offline'}</SourceTag>
-        </div>
-        <h1 className="mt-3 text-3xl leading-tight font-semibold tracking-tight text-balance text-ink sm:text-5xl">
-          {rec ? (
-            <>
-              Your one thing this month:{' '}
-              <span className="bg-gradient-to-r from-brand to-violet bg-clip-text text-transparent">{rec.label.toLowerCase()}.</span>
-            </>
-          ) : (
-            <>
-              You spend like the{' '}
-              <span className="bg-gradient-to-r from-brand to-violet bg-clip-text text-transparent">{groupName(insights.segment.name)}</span> crowd.
-            </>
-          )}
-        </h1>
-        <p className="mt-3 text-sm text-muted">
-          From {rows.length} payments in <span className="font-mono">{data.filename}</span> · about {money(insights.monthly_spend, currency)} a month ·
-          compared with {insights.neighbours.length} similar people out of 908
-        </p>
-      </motion.section>
+      <div className="flex flex-wrap items-center gap-3 pt-8 sm:pt-12">
+        <p className="text-sm text-muted">Hi {user.name}</p>
+        <SourceTag kind={mode === 'live' ? 'live' : 'placeholder'}>{mode === 'live' ? 'Live model output' : 'Placeholder · backend offline'}</SourceTag>
+      </div>
 
+      {/* Left: what you can do (save, biggest expense). Right: your Penny score. */}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-        <Card className="flex flex-col p-5 sm:p-6">
-          <div className="flex items-start gap-3">
-            <IconTile icon={Target} />
-            <div>
-              <h2 className="text-[15px] font-semibold text-ink">Your biggest win</h2>
-              <p className="text-sm text-muted">Where you spend more than people like you</p>
-            </div>
-          </div>
-          {rec ? (
+        <div className="flex flex-col gap-5">
+        {/* You could save up to £X → the savings / trade-offs page */}
+        <button
+          type="button"
+          onClick={() => onNavigate('recommendations')}
+          className="group flex flex-col rounded-3xl border border-brand/40 bg-brand-soft p-6 text-left shadow-card transition-all hover:-translate-y-0.5 hover:border-brand sm:p-7"
+        >
+          <span className="flex items-center gap-2 text-xs font-semibold tracking-widest text-brand uppercase">
+            <PiggyBank className="size-4" aria-hidden /> With Penny
+          </span>
+          {saveMonthly > 0 ? (
             <>
-              <p className="mt-5 text-xl font-semibold tracking-tight text-ink sm:text-2xl">Bring {rec.label} closer to people like you.</p>
-              <div className="relative mt-4 h-2.5 rounded-full bg-surface-2">
-                <div className="h-full rounded-full bg-gradient-to-r from-brand to-violet" style={{ width: `${Math.min(100, rec.your_share * 100)}%` }} />
-                <div className="absolute -top-1 h-4.5 w-0.5 rounded bg-ink" style={{ left: `${Math.min(100, rec.neighbours_share * 100)}%` }} />
-              </div>
-              <p className="mt-2 flex flex-wrap gap-x-5 text-sm text-ink-2">
-                <span>
-                  You: <b className="text-ink">{pct(rec.your_share)}</b> of your money
-                </span>
-                <span>
-                  People like you: <b className="text-ink">{pct(rec.neighbours_share)}</b>
-                </span>
-              </p>
-              <div className="mt-5 rounded-2xl bg-surface-2 p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <label htmlFor="what-if" className="text-sm text-ink-2">
-                    What if you cut {rec.label.toLowerCase()} by <b className="tabular text-ink">{cut}%</b>?
-                  </label>
-                  <p className="tabular text-sm text-ink-2">
-                    <b className="text-lg text-good-text">{money(whatIf, currency)}</b>/month · {money(whatIf * 12, currency)}/year
-                  </p>
-                </div>
-                <input
-                  id="what-if"
-                  type="range"
-                  min={5}
-                  max={50}
-                  step={5}
-                  value={cut}
-                  onChange={(e) => setCut(Number(e.target.value))}
-                  className="slider mt-3 w-full"
-                  style={{ ['--fill' as string]: `${((cut - 5) / 45) * 100}%` }}
-                />
-                <p className="mt-1 text-xs text-muted">You spend about {money(recMonthly, currency)} a month on it now.</p>
-              </div>
-              <div className="min-h-5 flex-1" />
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-                <p className="text-sm text-ink-2">
-                  Matching them frees up about <b className="text-good-text">{money(rec.est_monthly_saving, currency)} a month</b>, or{' '}
-                  {money(rec.est_monthly_saving * 12, currency)} a year.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('recommendations')}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-medium text-surface-solid transition-transform hover:-translate-y-0.5"
-                >
-                  Set it as a goal <ArrowRight className="size-4" aria-hidden />
-                </button>
-              </div>
+              <span className="mt-3 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                You could save up to <span className="text-good-text">{money(saveMonthly, currency)}</span> a month
+              </span>
+              <span className="mt-2 text-ink-2">
+                That’s {money(saveMonthly * 12, currency)} a year, from {insights.recommendations.length} change
+                {insights.recommendations.length === 1 ? '' : 's'} people like you already make.
+              </span>
             </>
           ) : (
-            <p className="mt-5 text-lg text-ink-2">Your spending mix is in line with people like you. Nothing big to fix.</p>
+            <span className="mt-3 text-2xl font-semibold tracking-tight text-ink">Your spending is already in line with people like you.</span>
+          )}
+          <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-brand">
+            See the trade-offs and how to save <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
+          </span>
+        </button>
+
+        {/* Your biggest expense this month */}
+        <Card className="flex flex-col p-6 sm:p-7">
+          <p className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted uppercase">
+            <TrendingDown className="size-4" aria-hidden /> Your biggest expense in {monthLabel}
+          </p>
+          {bigCat ? (
+            <>
+              <p className="mt-3 flex items-center gap-3 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                {(() => {
+                  const Icon = CATEGORY[bigCat].icon
+                  return <Icon className="size-7 text-brand" aria-hidden />
+                })()}
+                {CATEGORY[bigCat].label}
+              </p>
+              <p className="mt-2 text-ink-2">
+                <b className="text-ink">{money(bigAmount, currency)}</b>, {pct(bigAmount / monthTotal)} of everything you spent
+                {bigShop ? (
+                  <>
+                    , mostly at <b className="text-ink">{bigShop}</b>
+                  </>
+                ) : null}
+                .
+              </p>
+              {vsPeople && (
+                <p className="mt-auto border-t border-line pt-4 text-sm text-ink-2">
+                  {vsPeople.your_share > vsPeople.neighbours_share * 1.1
+                    ? `Over your whole statement it’s ${pct(vsPeople.your_share)} of your money. People like you spend ${pct(vsPeople.neighbours_share)}.`
+                    : `Over your whole statement it’s ${pct(vsPeople.your_share)} of your money, about the same as people like you (${pct(vsPeople.neighbours_share)}).`}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="mt-3 text-ink-2">No spending this month yet.</p>
           )}
         </Card>
+        </div>
 
-        <Card className="flex flex-col items-center p-5 text-center sm:p-6">
-          <h2 className="self-start text-[15px] font-semibold text-ink">How you compare</h2>
+        {/* Penny score (ml/model.py): how much of your spending mix matches the 20 people most like you (KNN) */}
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="glass flex flex-col rounded-3xl border border-line p-6 shadow-card sm:p-7"
+        >
+          <p className="text-xs font-semibold tracking-widest text-muted uppercase">Your Penny score</p>
           <ScoreRing score={insights.score} />
-          <p className="mt-1 text-xs text-muted">Group: {groupName(insights.segment.name)}</p>
-          <button type="button" onClick={() => onNavigate('compare')} className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand">
-            See the comparison <ArrowRight className="size-4" aria-hidden />
-          </button>
-        </Card>
+          <p className="mt-2 text-center text-pretty text-ink">{scoreLine(insights.score)}</p>
+          <p className="mt-auto border-t border-line pt-4 text-center text-sm text-ink-2">
+            999 = you spend just like them ·{' '}
+            <button type="button" onClick={() => onNavigate('compare')} className="font-medium whitespace-nowrap text-brand">
+              Compare →
+            </button>
+          </p>
+        </motion.section>
       </div>
 
       <SpendingMap data={data} />
@@ -179,4 +182,11 @@ function Tile({ label, value, onClick, children }: { label: string; value: strin
       <p className="mt-1 text-sm text-ink-2">{children}</p>
     </button>
   )
+}
+
+/** One friendly line about the Penny score (how much of your spending mix matches people like you). */
+function scoreLine(score: number): string {
+  if (score >= 850) return 'You spend a lot like people like you.'
+  if (score >= 650) return 'Mostly in line, with one or two categories that stand out.'
+  return 'A few categories stand out. That’s where your savings are.'
 }
