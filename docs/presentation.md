@@ -127,6 +127,11 @@ Penny reveals patterns hidden inside ordinary transaction rows.
 - Purchases unusual for that individual
 - The reasons an item was flagged
 
+- Heat map of geolocation that visualises where most money is spent
+- Fraud check
+- Forecasting
+- Peer classification of shopper archetype so can better understand yourself
+
 ### Technical approach
 
 The unusual-transaction model considers:
@@ -264,16 +269,12 @@ Tiger Data powers the full data-to-decision pipeline.
 - Daily category-spend continuous aggregate
 - Fraud rows excluded from normal spending statistics
 - Reference and uploaded users share the same schema
+- 90+% data compression
+- Integrated high frequency data aggregates stored side by side within database
 
 Tiger is not just storage: it turns a large transaction history into fresh features for segmentation, recommendations, maps, and anomaly checks.
 
 ---
-
-## 12. MLH: best use of Google Cloud
-
-### Honest status
-
-Google Cloud is not currently integrated in the repository, so we do not claim that it is.
 
 ### Planned integration
 
